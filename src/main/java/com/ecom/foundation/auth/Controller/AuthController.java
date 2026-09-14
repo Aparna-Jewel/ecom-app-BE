@@ -90,8 +90,6 @@ public class AuthController {
                 .build();
         csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
 
-        servletResponse.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.toString());
-
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())
                 .header(HttpHeaders.CACHE_CONTROL, "no-store")

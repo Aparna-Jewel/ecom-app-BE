@@ -14,17 +14,14 @@ public record AuthenticateRequestModel(
     String mobile,
     
     String email,
-
-    @NotBlank 
+ 
     String name,
 
-    @NotBlank 
     String lastName,
 
     @NotBlank 
     String token,
 
-    @NotNull 
     UUID termId
 
 ) {}

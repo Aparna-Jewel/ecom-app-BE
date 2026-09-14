@@ -80,6 +80,12 @@ public class AuthService {
             CreatedSession createdSession = sessionService.createSession(accountEntry.getId());
             return createdSession;
         }
+
+        if (request.email() == null || request.email().isBlank() || request.name() == null || request.name().isBlank()
+            || request.lastName() == null || request.lastName().isBlank() || request.termId() == null) {
+        
+            throw new ApplicationException(ErrorCode.VALIDATION_FAILED, "Customer signup details are required");
+        }
         
         if (accountRepository.existsByEmail(request.email())) {
             throw new ApplicationException(ErrorCode.RESOURCE_CONFLICT, "An account already exists for this email address");
