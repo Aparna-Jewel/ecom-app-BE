@@ -34,6 +34,9 @@ import com.ecom.foundation.common.error.ErrorCode;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.ecom.foundation.auth.security.SessionPrincipal;
+
 @RestController
 @RequestMapping("/auth")
 @Validated
@@ -95,30 +98,20 @@ public class AuthController {
     }
 
     @GetMapping("/session")
-    public ResponseEntity<Void> getSession(@CookieValue(name = "AJ_SESSION", required = false) String rawSessionSecret) {
-                sessionService.authenticate(rawSessionSecret);
-                return ResponseEntity.ok().cacheControl(CacheControl.noStore()).build();
+    public ResponseEntity<Void> getSession() {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).build();
     }
 
     @GetMapping("/account")
-    public ResponseEntity<AccountResponse> getAccount(@CookieValue(name = "AJ_SESSION", required = false) String rawSessionSecret) {
+    public ResponseEntity<AccountResponse> getAccount(@AuthenticationPrincipal SessionPrincipal principal) {
 
-        AuthenticationSession authenticatedSession = sessionService.authenticate(rawSessionSecret);
-
-        Optional<Account> fetchAccountData = authService.getAccountById(authenticatedSession.getAccountId());
-        
-        if(!fetchAccountData.isPresent()) {
-            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED, "Please authenticate first");
-        }
-        Account account = fetchAccountData.get();
-        
-        List<String> fetchAccountRole = authService.getAccountRole(account.getId()); 
+        Account account = authService.getAccountById(principal.accountId()).orElseThrow(() -> new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED));
 
         AccountResponse response = new AccountResponse(
                 account.getPublicId(),
                 account.getEmail(),
                 account.getMobile(),
-                fetchAccountRole
+                principal.roles()
         );
 
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);

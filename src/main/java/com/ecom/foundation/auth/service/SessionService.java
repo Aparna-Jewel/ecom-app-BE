@@ -7,6 +7,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
+import java.util.List;
 import java.util.Objects;
 
 import org.hibernate.annotations.ListIndexJavaType;
@@ -18,10 +19,13 @@ import org.springframework.transaction.annotation.Transactional;
 import com.ecom.foundation.auth.config.SessionProperties;
 import com.ecom.foundation.auth.dto.CreatedSession;
 import com.ecom.foundation.auth.entity.Account;
+import com.ecom.foundation.auth.entity.AccountRole;
 import com.ecom.foundation.auth.entity.AccountStatus;
 import com.ecom.foundation.auth.entity.AuthenticationSession;
 import com.ecom.foundation.auth.repository.AccountRepository;
+import com.ecom.foundation.auth.repository.AccountRoleRepository;
 import com.ecom.foundation.auth.repository.SessionRepository;
+import com.ecom.foundation.auth.security.SessionPrincipal;
 import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
 import com.ecom.foundation.common.helper.RandomGenerator;
@@ -36,18 +40,21 @@ public class SessionService {
     private final SessionProperties sessionProperties;
     private final Clock clock;
     private final AccountRepository accountRepository;
+    private final AccountRoleRepository accountRoleRepository;
 
     public SessionService(RandomGenerator randomGenerator, 
         SessionRepository sessionRepository, 
         SessionProperties sessionProperties, 
         Clock clock, 
-        AccountRepository accountRepository) {
+        AccountRepository accountRepository,
+        AccountRoleRepository accountRoleRepository) {
 
         this.randomGenerator = randomGenerator;
         this.sessionRepository = sessionRepository;
         this.sessionProperties = sessionProperties;
         this.clock = clock;
         this.accountRepository = accountRepository; 
+        this.accountRoleRepository = accountRoleRepository;
     }
 
     @Transactional(propagation = Propagation.MANDATORY)
@@ -67,7 +74,7 @@ public class SessionService {
     }
     
     @Transactional(readOnly = true)
-    public AuthenticationSession authenticate(String rawSecret) {
+    public SessionPrincipal authenticate(String rawSecret) {
         if (rawSecret == null || !rawSecret.matches("^[A-Za-z0-9_-]{43}$")) {
             throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
         }
@@ -82,13 +89,20 @@ public class SessionService {
             throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
         }
 
-        Account account = accountRepository.findById(fetchedSessionData.getAccountId()).orElseThrow(() -> new ApplicationException(ErrorCode.ACCESS_DENIED));
+        Account account = accountRepository.findById(fetchedSessionData.getAccountId()).orElseThrow(() -> new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED));
 
         if(account.getStatus() != AccountStatus.ACTIVE || (account.getLockedUntil() != null && now.isBefore(account.getLockedUntil()))) {
-            throw new ApplicationException(ErrorCode.ACCESS_DENIED);
+            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
         }
 
-        return fetchedSessionData;
+        List<String> roles = accountRoleRepository.findRoleCodesByAccountId(account.getId()); 
+
+        return new SessionPrincipal(
+            fetchedSessionData.getId(),
+            account.getId(),
+            account.getPublicId(),
+            roles
+            );
     }
 
     private String generateSecret() {
