@@ -14,11 +14,13 @@ import com.ecom.foundation.auth.dto.CreatedSession;
 import com.ecom.foundation.auth.entity.Account;
 import com.ecom.foundation.auth.entity.AccountRole;
 import com.ecom.foundation.auth.entity.AccountStatus;
+import com.ecom.foundation.auth.entity.CustomerProfile;
 import com.ecom.foundation.auth.entity.Role;
 import com.ecom.foundation.auth.jwt.service.JwtService;
 import com.ecom.foundation.auth.otpSetup.config.OtpContext;
 import com.ecom.foundation.auth.repository.AccountRepository;
 import com.ecom.foundation.auth.repository.AccountRoleRepository;
+import com.ecom.foundation.auth.repository.CustomerProfileRepository;
 import com.ecom.foundation.auth.repository.RoleRepository;
 import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
@@ -53,6 +55,9 @@ public class AuthService {
     @Autowired 
     private SessionService sessionService;
 
+    @Autowired 
+    private CustomerProfileRepository  customerProfileRepository;
+
     @Transactional(readOnly =true)
     public Optional<Account> getAccountByMobile(String mobile) {
         return accountRepository.findByMobile(mobile);
@@ -60,6 +65,14 @@ public class AuthService {
 
     public Optional<Account> getAccountById(Long id) {
         return accountRepository.findById(id);
+    }
+
+    public CustomerProfile getCustomerProfileById(Long id) {
+        Optional<CustomerProfile> profile = customerProfileRepository.findByAccountId(id);
+        if(!profile.isPresent()) {
+            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
+        }
+        return profile.get();
     }
 
     @Transactional(readOnly = true)
@@ -83,7 +96,7 @@ public class AuthService {
 
         if (request.email() == null || request.email().isBlank() || request.name() == null || request.name().isBlank()
             || request.lastName() == null || request.lastName().isBlank() || request.termId() == null) {
-        
+
             throw new ApplicationException(ErrorCode.VALIDATION_FAILED, "Customer signup details are required");
         }
         
@@ -108,9 +121,13 @@ public class AuthService {
 
         accountRoleRepository.save(new AccountRole(savedAccount, customerRole, null));
 
-
         termsAcceptanceRepository.save(new TermsAcceptance(savedAccount.getId(), terms));
-        
+
+        String fullName = request.name() + request.lastName();
+
+        CustomerProfile profileData = new CustomerProfile(account.getId(), fullName);
+        customerProfileRepository.save(profileData);
+
         return sessionService.createSession(savedAccount.getId());
     }
 

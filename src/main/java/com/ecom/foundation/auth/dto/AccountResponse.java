@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.UUID;
 
 public record AccountResponse(
+        String fullName,
         UUID publicId,
         String email,
         String mobile,

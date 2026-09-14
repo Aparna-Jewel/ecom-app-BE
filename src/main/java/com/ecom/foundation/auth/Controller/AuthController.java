@@ -18,6 +18,7 @@ import com.ecom.foundation.auth.dto.AccountResponse;
 import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
 import com.ecom.foundation.auth.dto.CreatedSession;
 import com.ecom.foundation.auth.entity.Account;
+import com.ecom.foundation.auth.entity.CustomerProfile;
 import com.ecom.foundation.auth.otpSetup.dto.OtpChallengeResponse;
 import com.ecom.foundation.auth.otpSetup.dto.OtpRequestModel;
 import com.ecom.foundation.auth.otpSetup.service.*;
@@ -105,8 +106,9 @@ public class AuthController {
     public ResponseEntity<AccountResponse> getAccount(@AuthenticationPrincipal SessionPrincipal principal) {
 
         Account account = authService.getAccountById(principal.accountId()).orElseThrow(() -> new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED));
-
+        CustomerProfile customerProfile = authService.getCustomerProfileById(account.getId());
         AccountResponse response = new AccountResponse(
+                customerProfile.getFullName(),
                 account.getPublicId(),
                 account.getEmail(),
                 account.getMobile(),
