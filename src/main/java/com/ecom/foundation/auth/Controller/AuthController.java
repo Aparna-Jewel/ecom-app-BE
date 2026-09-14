@@ -1,8 +1,5 @@
 package com.ecom.foundation.auth.controller;
 
-import java.util.List;
-import java.util.Optional;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.CacheControl;
@@ -10,7 +7,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
-import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,12 +18,10 @@ import com.ecom.foundation.auth.dto.AccountResponse;
 import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
 import com.ecom.foundation.auth.dto.CreatedSession;
 import com.ecom.foundation.auth.entity.Account;
-import com.ecom.foundation.auth.entity.AuthenticationSession;
 import com.ecom.foundation.auth.otpSetup.dto.OtpChallengeResponse;
 import com.ecom.foundation.auth.otpSetup.dto.OtpRequestModel;
 import com.ecom.foundation.auth.otpSetup.service.*;
 import com.ecom.foundation.auth.service.AuthService;
-import com.ecom.foundation.auth.service.SessionService;
 import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
 
@@ -36,6 +30,8 @@ import jakarta.validation.Valid;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import com.ecom.foundation.auth.security.SessionPrincipal;
+import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 @RestController
 @RequestMapping("/auth")
@@ -48,13 +44,14 @@ public class AuthController {
     private OtpService otpService;
     private AuthService authService;
     private SessionProperties sessionProperties;
-    private SessionService sessionService;
+    private final CookieCsrfTokenRepository csrfTokenRepository;
 
-    public AuthController(OtpService otpService, AuthService authService, SessionProperties sessionProperties, SessionService sessionService) {
+    public AuthController(OtpService otpService, AuthService authService, SessionProperties sessionProperties,CookieCsrfTokenRepository csrfTokenRepository) {
         this.otpService = otpService;
         this.authService = authService;
         this.sessionProperties = sessionProperties;
-        this.sessionService = sessionService;
+        this.csrfTokenRepository = csrfTokenRepository;
+        
     }
 
     @PostMapping("otp/send")
@@ -78,7 +75,8 @@ public class AuthController {
     }
 
     @PostMapping("/customer/authenticate")
-    public ResponseEntity<Void> completeCustomerAuthentication(@Valid @RequestBody AuthenticateRequestModel request) {
+    public ResponseEntity<Void> completeCustomerAuthentication(@Valid @RequestBody AuthenticateRequestModel request, HttpServletRequest servletRequest,
+        HttpServletResponse servletResponse) {
 
         CreatedSession createdSession = authService.completeCustomerSignup(request);
 
@@ -90,6 +88,9 @@ public class AuthController {
                 .path("/")
                 .maxAge(sessionProperties.absoluteTimeout())
                 .build();
+        csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
+
+        servletResponse.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.toString());
 
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())

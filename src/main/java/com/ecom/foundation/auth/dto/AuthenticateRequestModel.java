@@ -3,6 +3,7 @@ package com.ecom.foundation.auth.dto;
 import java.util.UUID;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 
 public record AuthenticateRequestModel(
 
@@ -13,9 +14,6 @@ public record AuthenticateRequestModel(
     String mobile,
     
     String email,
-    
-    @NotBlank 
-    String otp,
 
     @NotBlank 
     String name,
@@ -26,10 +24,7 @@ public record AuthenticateRequestModel(
     @NotBlank 
     String token,
 
-    @NotBlank 
-    String context,
-
-    @NotBlank 
+    @NotNull 
     UUID termId
 
 ) {}

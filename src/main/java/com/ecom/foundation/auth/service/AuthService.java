@@ -70,28 +70,31 @@ public class AuthService {
     @Transactional 
     public CreatedSession completeCustomerSignup(AuthenticateRequestModel request) {
         String isdMobileNumber = request.isd() + request.mobile();
-        Terms terms = termsRepository.findByStatus(TermStatus.PUBLISHED).orElseThrow(() -> new IllegalStateException("No published terms are available"));
+        Optional<Account> existingAccount = accountRepository.findByMobile(isdMobileNumber);
 
+        jwtService.validateAndConsumeJwt(request.token(), request.isd(), request.mobile(), OtpContext.CUSTOMER_AUTH);
+        
+        if (existingAccount.isPresent()) {
+            Account accountEntry = existingAccount.get();
+            validateCustomerLoginEligibility(accountEntry);
+            CreatedSession createdSession = sessionService.createSession(accountEntry.getId());
+            return createdSession;
+        }
         
         if (accountRepository.existsByEmail(request.email())) {
             throw new ApplicationException(ErrorCode.RESOURCE_CONFLICT, "An account already exists for this email address");
         }
-        
-        jwtService.validateAndConsumeJwt(request.token(), request.isd(), request.mobile(), OtpContext.CUSTOMER_AUTH);
-        
-        if (accountRepository.existsByMobile(isdMobileNumber)) {
-            Optional<Account> account = accountRepository.findByMobile(isdMobileNumber);
-            if(account.isPresent()) {
-                Account accountEntry = account.get();
-                CreatedSession createdSession = sessionService.createSession(accountEntry.getId());
-                return createdSession;
-            }
-        }
-        
+
         Instant now = Instant.now();
 
         Account account = new Account(UUID.randomUUID(), request.email(), isdMobileNumber, null, AccountStatus.ACTIVE);
         account.markMobileVerified(now);
+
+        Terms terms = termsRepository.findByStatus(TermStatus.PUBLISHED).orElseThrow(() -> new IllegalStateException("No published terms are available"));
+
+        if (!terms.getId().equals(request.termId())) {
+            throw new ApplicationException(ErrorCode.RESOURCE_CONFLICT, "Terms and conditions have changed. Please review and accept the latest version.");
+        }
 
         Account savedAccount = accountRepository.save(account);
 
@@ -99,10 +102,29 @@ public class AuthService {
 
         accountRoleRepository.save(new AccountRole(savedAccount, customerRole, null));
 
+
         termsAcceptanceRepository.save(new TermsAcceptance(savedAccount.getId(), terms));
-
-        CreatedSession sessionData = sessionService.createSession(savedAccount.getId());
-
-        return sessionData;
+        
+        return sessionService.createSession(savedAccount.getId());
     }
+
+    private void validateCustomerLoginEligibility(Account account) {
+
+    Instant now = Instant.now();
+
+    if (account.getStatus() != AccountStatus.ACTIVE
+            || (account.getLockedUntil() != null
+                && now.isBefore(account.getLockedUntil()))) {
+        throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
+    }
+
+    List<String> roles =
+            accountRoleRepository.findRoleCodesByAccountId(account.getId());
+
+    if (!roles.contains("CUSTOMER")
+            || roles.contains("ADMIN")
+            || roles.contains("OPS")) {
+        throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
+    }
+}
 }
