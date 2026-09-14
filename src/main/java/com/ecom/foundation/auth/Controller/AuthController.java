@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ecom.foundation.auth.config.AuthCookieProperties;
 import com.ecom.foundation.auth.config.SessionProperties;
 import com.ecom.foundation.auth.dto.AccountResponse;
 import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
@@ -46,12 +47,16 @@ public class AuthController {
     private AuthService authService;
     private SessionProperties sessionProperties;
     private final CookieCsrfTokenRepository csrfTokenRepository;
+    private final AuthCookieProperties authCookieProperties;
 
-    public AuthController(OtpService otpService, AuthService authService, SessionProperties sessionProperties,CookieCsrfTokenRepository csrfTokenRepository) {
+    public AuthController(OtpService otpService, AuthService authService, SessionProperties sessionProperties,CookieCsrfTokenRepository csrfTokenRepository,
+        AuthCookieProperties authCookieProperties
+    ) {
         this.otpService = otpService;
         this.authService = authService;
         this.sessionProperties = sessionProperties;
         this.csrfTokenRepository = csrfTokenRepository;
+        this.authCookieProperties = authCookieProperties;
         
     }
 
@@ -82,14 +87,14 @@ public class AuthController {
         CreatedSession createdSession = authService.completeCustomerSignup(request);
 
         ResponseCookie sessionCookie = ResponseCookie
-                .from("AJ_SESSION", createdSession.rawSecret())
-                .httpOnly(true)
-                .secure(false)
-                .sameSite("Lax")
-                .path("/")
-                .maxAge(sessionProperties.absoluteTimeout())
-                .build();
-        csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
+            .from(authCookieProperties.name(), createdSession.rawSecret())
+            .httpOnly(true)
+            .secure(authCookieProperties.secure())
+            .sameSite(authCookieProperties.sameSite())
+            .path("/")
+            .maxAge(sessionProperties.absoluteTimeout())
+            .build();
+            csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
 
         return ResponseEntity.noContent()
                 .header(HttpHeaders.SET_COOKIE, sessionCookie.toString())

@@ -23,6 +23,10 @@ app:
   version: 0.0.1
   environment: ${spring.profiles.active}
   security:
+    cookie:
+      name: ${AUTH_SESSION_COOKIE_NAME:__Host-AJSESSION}
+      secure: ${AUTH_COOKIE_SECURE:true}
+      same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
     otp:
       validity: 5m
       resend-delay: 60s

@@ -82,7 +82,7 @@ public class AuthService {
 
     @Transactional 
     public CreatedSession completeCustomerSignup(AuthenticateRequestModel request) {
-        String isdMobileNumber = request.isd() + request.mobile();
+        String isdMobileNumber = request.isd() + " " + request.mobile();
         Optional<Account> existingAccount = accountRepository.findByMobile(isdMobileNumber);
 
         jwtService.validateAndConsumeJwt(request.token(), request.isd(), request.mobile(), OtpContext.CUSTOMER_AUTH);

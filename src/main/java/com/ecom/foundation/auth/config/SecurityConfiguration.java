@@ -20,62 +20,68 @@ import com.ecom.foundation.auth.service.SessionService;
 public class SecurityConfiguration {
 
     @Bean
-    public CookieCsrfTokenRepository csrfTokenRepository() {
+    public CookieCsrfTokenRepository csrfTokenRepository( AuthCookieProperties authCookieProperties ) {
         CookieCsrfTokenRepository repository = new CookieCsrfTokenRepository();
 
         repository.setCookieName("XSRF-TOKEN");
         repository.setHeaderName("X-XSRF-TOKEN");
         repository.setCookiePath("/");
 
-        repository.setCookieCustomizer(cookie -> cookie.httpOnly(true).sameSite("Lax"));
+        repository.setCookieCustomizer(cookie ->
+            cookie
+                    .httpOnly(true)
+                    .secure(authCookieProperties.secure())
+                    .sameSite(authCookieProperties.sameSite())
+                    .path("/")
+    );
 
         return repository;
     }
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository, SessionService sessionService) throws Exception {
+        public SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository, SessionService sessionService, 
+                AuthCookieProperties authCookieProperties) throws Exception {
+                http
+                        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                        .requestCache(AbstractHttpConfigurer::disable)
+                        .formLogin(AbstractHttpConfigurer::disable)
+                        .httpBasic(AbstractHttpConfigurer::disable)
+                        .logout(AbstractHttpConfigurer::disable)
 
-        http
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .requestCache(AbstractHttpConfigurer::disable)
-                .formLogin(AbstractHttpConfigurer::disable)
-                .httpBasic(AbstractHttpConfigurer::disable)
-                .logout(AbstractHttpConfigurer::disable)
+                        .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository).csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler()))
 
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository).csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler()))
+                        .authorizeHttpRequests(authorize -> authorize
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/api/security/csrf"
+                                ).permitAll()
 
-                .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/api/security/csrf"
-                        ).permitAll()
+                                .requestMatchers(
+                                        HttpMethod.POST,
+                                        "/auth/otp/send",
+                                        "/auth/otp/verify",
+                                        "/auth/customer/authenticate",
+                                        "/auth/logout"
+                                ).permitAll()
 
-                        .requestMatchers(
-                                HttpMethod.POST,
-                                "/auth/otp/send",
-                                "/auth/otp/verify",
-                                "/auth/customer/authenticate",
-                                "/auth/logout"
-                        ).permitAll()
+                                .requestMatchers(
+                                        HttpMethod.GET,
+                                        "/auth/session",
+                                        "/auth/account"
+                                ).authenticated()
 
-                        .requestMatchers(
-                                HttpMethod.GET,
-                                "/auth/session",
-                                "/auth/account"
-                        ).authenticated()
+                                .anyRequest().denyAll()
+                        )
 
-                        .anyRequest().denyAll()
-                )
+                        .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
+                                .accessDeniedHandler((request, response, exception) ->response.setStatus(HttpStatus.FORBIDDEN.value()))
+                            );
 
-                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                        .accessDeniedHandler((request, response, exception) ->response.setStatus(HttpStatus.FORBIDDEN.value()))
-                    );
+                http.addFilterBefore(
+                        new OpaqueSessionAuthenticationFilter(sessionService, "AJ_SESSION"),
+                        UsernamePasswordAuthenticationFilter.class
+                );
 
-        http.addFilterBefore(
-                new OpaqueSessionAuthenticationFilter(sessionService, "AJ_SESSION"),
-                UsernamePasswordAuthenticationFilter.class
-        );
-
-        return http.build();
+                return http.build();
     }
 }
