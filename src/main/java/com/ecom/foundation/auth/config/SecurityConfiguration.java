@@ -54,7 +54,7 @@ public class SecurityConfiguration {
                                 HttpMethod.POST,
                                 "/auth/otp/send",
                                 "/auth/otp/verify",
-                                "/auth/customer/complete",
+                                "/auth/customer/authenticate",
                                 "/auth/logout"
                         ).permitAll()
 
