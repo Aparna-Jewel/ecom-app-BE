@@ -78,7 +78,7 @@ public class SecurityConfiguration {
                             );
 
                 http.addFilterBefore(
-                        new OpaqueSessionAuthenticationFilter(sessionService, "AJ_SESSION"),
+                        new OpaqueSessionAuthenticationFilter(sessionService, authCookieProperties.name()),
                         UsernamePasswordAuthenticationFilter.class
                 );
 

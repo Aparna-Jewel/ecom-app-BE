@@ -9,6 +9,7 @@ import java.util.Base64;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
 import org.hibernate.annotations.ListIndexJavaType;
 import org.springframework.context.annotation.Lazy;
@@ -105,6 +106,18 @@ public class SessionService {
             );
     }
 
+    @Transactional 
+    public void revokeSession(String rawSecret, String reason) {
+        String secretHash = hashSecret(rawSecret);
+        Optional<AuthenticationSession> session = sessionRepository.findBySecretHash(secretHash);
+        if(!session.isPresent()) {
+            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
+        }
+        int revokedSession = sessionRepository.revokeSessionBySecretHash(Instant.now(), secretHash, reason);
+        if(revokedSession == 0) {
+            throw new ApplicationException(ErrorCode.INTERNAL_ERROR);
+        } 
+    }
     private String generateSecret() {
         byte[] randomBytes = randomGenerator.secureRandomBytes(SESSION_SECRET_BYTE_LENGTH);
 

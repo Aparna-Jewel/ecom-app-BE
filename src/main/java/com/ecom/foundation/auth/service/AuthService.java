@@ -135,18 +135,13 @@ public class AuthService {
 
     Instant now = Instant.now();
 
-    if (account.getStatus() != AccountStatus.ACTIVE
-            || (account.getLockedUntil() != null
-                && now.isBefore(account.getLockedUntil()))) {
+    if (account.getStatus() != AccountStatus.ACTIVE || (account.getLockedUntil() != null && now.isBefore(account.getLockedUntil()))) {
         throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
     }
 
-    List<String> roles =
-            accountRoleRepository.findRoleCodesByAccountId(account.getId());
+    List<String> roles = accountRoleRepository.findRoleCodesByAccountId(account.getId());
 
-    if (!roles.contains("CUSTOMER")
-            || roles.contains("ADMIN")
-            || roles.contains("OPS")) {
+    if (!roles.contains("CUSTOMER") || roles.contains("ADMIN") || roles.contains("OPS")) {
         throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
     }
 }

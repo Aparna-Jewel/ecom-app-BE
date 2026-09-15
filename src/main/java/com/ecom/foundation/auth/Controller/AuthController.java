@@ -24,9 +24,11 @@ import com.ecom.foundation.auth.otpSetup.dto.OtpChallengeResponse;
 import com.ecom.foundation.auth.otpSetup.dto.OtpRequestModel;
 import com.ecom.foundation.auth.otpSetup.service.*;
 import com.ecom.foundation.auth.service.AuthService;
+import com.ecom.foundation.auth.service.SessionService;
 import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
 
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
@@ -48,16 +50,17 @@ public class AuthController {
     private SessionProperties sessionProperties;
     private final CookieCsrfTokenRepository csrfTokenRepository;
     private final AuthCookieProperties authCookieProperties;
+    private final SessionService sessionService;
 
     public AuthController(OtpService otpService, AuthService authService, SessionProperties sessionProperties,CookieCsrfTokenRepository csrfTokenRepository,
-        AuthCookieProperties authCookieProperties
+        AuthCookieProperties authCookieProperties, SessionService sessionService
     ) {
         this.otpService = otpService;
         this.authService = authService;
         this.sessionProperties = sessionProperties;
         this.csrfTokenRepository = csrfTokenRepository;
         this.authCookieProperties = authCookieProperties;
-        
+        this.sessionService = sessionService;
     }
 
     @PostMapping("otp/send")
@@ -121,5 +124,25 @@ public class AuthController {
         );
 
         return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(response);
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logoutUser(HttpServletRequest request) {
+        Cookie[] cookies = request.getCookies();
+        if(cookies == null) {
+            return null;
+        }
+
+        String rawSecret = null;
+        for(Cookie cookie : cookies) {
+            if(authCookieProperties.name().equals(cookie.getName())){
+                if(rawSecret != null) {
+                    rawSecret = null;
+                }
+                rawSecret = cookie.getValue();
+            }
+        }
+        sessionService.revokeSession(rawSecret, "LOGOUT");
+        return ResponseEntity.ok().build();
     }
 }

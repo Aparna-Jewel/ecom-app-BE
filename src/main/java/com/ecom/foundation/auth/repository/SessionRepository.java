@@ -1,8 +1,12 @@
 package com.ecom.foundation.auth.repository;
 
+import java.time.Instant;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import com.ecom.foundation.auth.entity.AuthenticationSession;
 
@@ -13,4 +17,17 @@ public interface SessionRepository extends JpaRepository<AuthenticationSession, 
 
     Optional<AuthenticationSession> findByIdAndRevokedAtIsNull(Long id);
 
+    @Modifying 
+    @Query("""
+        UPDATE authenticationSession s
+        SET s.revokedt_at = :now",
+            s.revocation_reason = :reason
+        WHERE s.secret_hash = :secretHash 
+        AND s.revoked_At = null
+        """)
+    int revokeSessionBySecretHash(
+        @Param("now") Instant now,
+        @Param("secretHash") String secretHash,
+        @Param("reason") String Reason
+    );
 }
