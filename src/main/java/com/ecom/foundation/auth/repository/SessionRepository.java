@@ -20,7 +20,7 @@ public interface SessionRepository extends JpaRepository<AuthenticationSession, 
     @Modifying 
     @Query("""
         UPDATE authenticationSession s
-        SET s.revokedtAt = :now",
+        SET s.revokedtAt = :now,
             s.revocationReason = :reason
         WHERE s.secretHash = :secretHash 
         AND s.revokedAt is null
