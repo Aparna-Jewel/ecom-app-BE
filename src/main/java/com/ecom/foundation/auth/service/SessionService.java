@@ -115,7 +115,7 @@ public class SessionService {
 
         String secretHash = hashSecret(rawSecret);
 
-        sessionRepository.revokeSessionBySecretHash(Instant.now(), secretHash, reason);
+        sessionRepository.revokeSessionBySecretHash(clock.instant(), secretHash, reason);
     }
     private String generateSecret() {
         byte[] randomBytes = randomGenerator.secureRandomBytes(SESSION_SECRET_BYTE_LENGTH);
