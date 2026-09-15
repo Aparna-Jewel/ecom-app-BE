@@ -27,12 +27,15 @@ import com.ecom.foundation.auth.service.AuthService;
 import com.ecom.foundation.auth.service.SessionService;
 import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
+import com.nimbusds.jose.Header;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.context.SecurityContextHolder;
+
 import com.ecom.foundation.auth.security.SessionPrincipal;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
@@ -127,7 +130,7 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logoutUser(HttpServletRequest request) {
+    public ResponseEntity<Void> logoutUser(HttpServletRequest request, HttpServletResponse response) {
         Cookie[] cookies = request.getCookies();
         if(cookies == null) {
             return null;
@@ -136,13 +139,24 @@ public class AuthController {
         String rawSecret = null;
         for(Cookie cookie : cookies) {
             if(authCookieProperties.name().equals(cookie.getName())){
-                if(rawSecret != null) {
-                    rawSecret = null;
-                }
-                rawSecret = cookie.getValue();
+                sessionService.revokeSession(cookie.getValue(), "LOGOUT");
             }
         }
-        sessionService.revokeSession(rawSecret, "LOGOUT");
-        return ResponseEntity.ok().build();
+        ResponseCookie cookie = ResponseCookie
+        .from(authCookieProperties.name(), "")
+        .httpOnly(true)
+        .secure(authCookieProperties.secure())
+        .sameSite(authCookieProperties.sameSite())
+        .path("/")
+        .maxAge(0)
+        .build();
+
+        csrfTokenRepository.saveToken(null, request, response);
+        
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());;
+
+        SecurityContextHolder.clearContext();
+
+        return ResponseEntity.noContent().header(HttpHeaders.CACHE_CONTROL, "no-store").build();
     }
 }

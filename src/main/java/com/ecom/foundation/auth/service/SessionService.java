@@ -108,18 +108,14 @@ public class SessionService {
 
     @Transactional 
     public void revokeSession(String rawSecret, String reason) {
+        
         if (rawSecret == null || !rawSecret.matches("^[A-Za-z0-9_-]{43}$")) {
             return;
         }
+
         String secretHash = hashSecret(rawSecret);
-        Optional<AuthenticationSession> session = sessionRepository.findBySecretHash(secretHash);
-        if(!session.isPresent()) {
-            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
-        }
-        int revokedSession = sessionRepository.revokeSessionBySecretHash(Instant.now(), secretHash, reason);
-        if(revokedSession == 0) {
-            throw new ApplicationException(ErrorCode.INTERNAL_ERROR);
-        } 
+
+        sessionRepository.revokeSessionBySecretHash(Instant.now(), secretHash, reason);
     }
     private String generateSecret() {
         byte[] randomBytes = randomGenerator.secureRandomBytes(SESSION_SECRET_BYTE_LENGTH);
