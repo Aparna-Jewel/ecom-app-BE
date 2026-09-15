@@ -82,7 +82,7 @@ public class AuthService {
 
     @Transactional 
     public CreatedSession completeCustomerSignup(AuthenticateRequestModel request) {
-        String isdMobileNumber = request.isd() + " " + request.mobile();
+        String isdMobileNumber = request.isd() + request.mobile();
         Optional<Account> existingAccount = accountRepository.findByMobile(isdMobileNumber);
 
         jwtService.validateAndConsumeJwt(request.token(), request.isd(), request.mobile(), OtpContext.CUSTOMER_AUTH);
@@ -123,7 +123,7 @@ public class AuthService {
 
         termsAcceptanceRepository.save(new TermsAcceptance(savedAccount.getId(), terms));
 
-        String fullName = request.name() + request.lastName();
+        String fullName = request.name() + " " + request.lastName();
 
         CustomerProfile profileData = new CustomerProfile(account.getId(), fullName);
         customerProfileRepository.save(profileData);

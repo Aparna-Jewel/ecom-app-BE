@@ -23,7 +23,7 @@ public interface SessionRepository extends JpaRepository<AuthenticationSession, 
         SET s.revokedt_at = :now",
             s.revocation_reason = :reason
         WHERE s.secret_hash = :secretHash 
-        AND s.revoked_At = null
+        AND s.revoked_At is null
         """)
     int revokeSessionBySecretHash(
         @Param("now") Instant now,

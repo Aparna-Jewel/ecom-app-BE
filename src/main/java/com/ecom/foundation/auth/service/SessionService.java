@@ -108,6 +108,9 @@ public class SessionService {
 
     @Transactional 
     public void revokeSession(String rawSecret, String reason) {
+        if (rawSecret == null || !rawSecret.matches("^[A-Za-z0-9_-]{43}$")) {
+            return;
+        }
         String secretHash = hashSecret(rawSecret);
         Optional<AuthenticationSession> session = sessionRepository.findBySecretHash(secretHash);
         if(!session.isPresent()) {
