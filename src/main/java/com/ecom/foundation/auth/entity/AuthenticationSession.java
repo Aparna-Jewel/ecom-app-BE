@@ -43,7 +43,7 @@ public class AuthenticationSession {
     @Column(name = "revocation_reason", nullable = true, length = 100)
     private String revocationReason;
 
-    private AuthenticationSession() {
+    protected AuthenticationSession() {
         // Required by JPA
     }
 
