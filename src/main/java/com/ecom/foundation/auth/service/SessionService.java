@@ -120,39 +120,43 @@ public class SessionService {
 
         List<String> roles = accountRoleRepository.findRoleCodesByAccountId(account.getId()); 
 
-        SessionPolicy policy;
-
-        if (roles.contains("CUSTOMER")) {
-            policy = sessionProperties.customer();
-        } else if (roles.contains("ADMIN") || roles.contains("OPS")) {
-            policy = sessionProperties.staff();
-        } else {
-            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
-        }
-
-        if (now.isAfter(fetchedSessionData.getLastActivityAt().plus(policy.refreshInterval()))) {
-            Instant candidate =
-                    now.plus(policy.idleTimeout());
-
-            Instant newIdleExpiry =
-                    candidate.isBefore(fetchedSessionData.getAbsoluteExpiresAt())
-                            ? candidate
-                            : fetchedSessionData.getAbsoluteExpiresAt();
-
-            sessionRepository.refreshActivity(
-                    fetchedSessionData.getId(),
-                    now,
-                    newIdleExpiry
-            );
-        }
-        
-
         return new SessionPrincipal(
             fetchedSessionData.getId(),
             account.getId(),
             account.getPublicId(),
             roles
             );
+    }
+
+    @Transactional
+    public void refreshActivity(Long sessionId, List<String> roles) {
+
+        Objects.requireNonNull(sessionId, "Session ID is required");
+
+        SessionPolicy policy;
+
+        if (roles.contains("CUSTOMER")) {
+            policy = sessionProperties.customer();
+
+        } else if (roles.contains("ADMIN") || roles.contains("OPS")) {
+            policy = sessionProperties.staff();
+
+        } else return;
+
+        Instant now = clock.instant();
+
+        Instant candidateIdleExpiry =
+                now.plus(policy.idleTimeout());
+
+        Instant refreshBefore =
+                now.minus(policy.refreshInterval());
+
+        sessionRepository.refreshActivity(
+                sessionId,
+                now,
+                candidateIdleExpiry,
+                refreshBefore
+        );
     }
 
     @Transactional 

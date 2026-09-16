@@ -133,11 +133,14 @@ public class AuthController {
     public ResponseEntity<Void> logoutUser(HttpServletRequest request, HttpServletResponse response) {
         Cookie[] cookies = request.getCookies();
 
-        for(Cookie cookie : cookies) {
-            if(authCookieProperties.name().equals(cookie.getName())){
-                sessionService.revokeSession(cookie.getValue(), "LOGOUT");
+        if(cookies != null) {
+            for(Cookie cookie : cookies) {
+                if(authCookieProperties.name().equals(cookie.getName())){
+                    sessionService.revokeSession(cookie.getValue(), "LOGOUT");
+                }
             }
         }
+        
         ResponseCookie cookie = ResponseCookie
         .from(authCookieProperties.name(), "")
         .httpOnly(true)

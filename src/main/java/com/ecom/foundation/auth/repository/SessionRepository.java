@@ -31,18 +31,26 @@ public interface SessionRepository extends JpaRepository<AuthenticationSession, 
         @Param("reason") String Reason
     );
 
-    @Modifying 
+    @Modifying
     @Query("""
-            UPDATE AuthenticationSession s
-            SET S.idleExpiresAt = :newIdealExpiryAt,
-                s.lastActivityAt = :now
-            WHERE s.id = :id
-            AND s.revokedAt is null
-            AND s.revocationReason is null
-            """)
+        UPDATE AuthenticationSession s
+           SET s.lastActivityAt = :now,
+               s.idleExpiresAt =
+                   CASE
+                       WHEN s.absoluteExpiresAt < :candidateIdleExpiry
+                       THEN s.absoluteExpiresAt
+                       ELSE :candidateIdleExpiry
+                   END
+         WHERE s.id = :sessionId
+           AND s.revokedAt IS NULL
+           AND s.idleExpiresAt > :now
+           AND s.absoluteExpiresAt > :now
+           AND s.lastActivityAt <= :refreshBefore
+    """)
     int refreshActivity(
-        @Param("id") Long id,
-        @Param("now") Instant now,
-        @Param("newIdealExpiryAt") Instant newIdealExpiryAt
+            @Param("sessionId") Long sessionId,
+            @Param("now") Instant now,
+            @Param("candidateIdleExpiry") Instant candidateIdleExpiry,
+            @Param("refreshBefore") Instant refreshBefore
     );
 }

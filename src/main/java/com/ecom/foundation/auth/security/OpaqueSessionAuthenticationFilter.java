@@ -38,6 +38,10 @@ public class OpaqueSessionAuthenticationFilter extends OncePerRequestFilter {
             try {
                 SessionPrincipal principal = sessionService.authenticate(rawSecret);
 
+                if (shouldRefreshActivity(request)) {
+                    sessionService.refreshActivity(principal.sessionId(), principal.roles());
+                }
+
                 var authorities = principal.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
 
                 var authentication = UsernamePasswordAuthenticationToken.authenticated(principal,null,authorities);
@@ -87,4 +91,17 @@ public class OpaqueSessionAuthenticationFilter extends OncePerRequestFilter {
 
         return rawSecret;
     }
+    private boolean shouldRefreshActivity(HttpServletRequest request) {
+
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return false;
+        }
+    
+        String path = request.getServletPath();
+    
+        return !path.equals("/auth/session")
+                && !path.equals("/api/security/csrf")
+                && !path.equals("/auth/logout")
+                && !path.startsWith("/actuator/");
+        }
 }
