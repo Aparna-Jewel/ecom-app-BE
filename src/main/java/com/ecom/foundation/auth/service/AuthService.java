@@ -129,7 +129,7 @@ public class AuthService {
         CustomerProfile profileData = new CustomerProfile(account.getId(), fullName);
         customerProfileRepository.save(profileData);
 
-        return sessionService.createSession(savedAccount.getId());
+        return sessionService.createSession(savedAccount.getId(), SessionType.CUSTOMER);
     }
 
     private void validateCustomerLoginEligibility(Account account) {

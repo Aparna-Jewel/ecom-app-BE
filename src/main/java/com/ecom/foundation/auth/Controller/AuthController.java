@@ -132,11 +132,11 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logoutUser(HttpServletRequest request, HttpServletResponse response) {
         Cookie[] cookies = request.getCookies();
+
         if(cookies == null) {
-            return null;
+            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
         }
 
-        String rawSecret = null;
         for(Cookie cookie : cookies) {
             if(authCookieProperties.name().equals(cookie.getName())){
                 sessionService.revokeSession(cookie.getValue(), "LOGOUT");

@@ -32,22 +32,24 @@ public record SessionProperties(
             Duration absoluteTimeout,
 
             @NotNull
-            Duration activityRefreshInterval
+            Duration refreshInterval
 
     ) {
 
         @AssertTrue(message = "Session timeouts must be positive, activity refresh must be less than idle timeout, and idle timeout must not exceed absolute timeout")
         public boolean isValid() {
 
-            if (idleTimeout == null || absoluteTimeout == null || activityRefreshInterval == null) {
-                return true;
-            }
+            if (idleTimeout == null || absoluteTimeout == null || refreshInterval == null) return true; 
 
             return !idleTimeout.isNegative()
-                    && absoluteTimeout.isNegative()
-                    && activityRefreshInterval.isNegative()
-                    && activityRefreshInterval.compareTo(idleTimeout) > 0
-                    && idleTimeout.compareTo(absoluteTimeout) >= 0;
+                    && !idleTimeout.isZero()
+                    && !absoluteTimeout.isNegative()
+                    && !absoluteTimeout.isZero()
+                    && !refreshInterval.isNegative()
+                    && !refreshInterval.isZero()
+                    && refreshInterval.compareTo(idleTimeout) < 0
+                    && idleTimeout.compareTo(absoluteTimeout) <= 0;
+                
         }
     }
 }
