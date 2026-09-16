@@ -132,6 +132,7 @@ public class SessionService {
     public void refreshActivity(Long sessionId, List<String> roles) {
 
         Objects.requireNonNull(sessionId, "Session ID is required");
+        Objects.requireNonNull(roles, "Role is required");
 
         SessionPolicy policy;
 
@@ -145,11 +146,9 @@ public class SessionService {
 
         Instant now = clock.instant();
 
-        Instant candidateIdleExpiry =
-                now.plus(policy.idleTimeout());
+        Instant candidateIdleExpiry = now.plus(policy.idleTimeout());
 
-        Instant refreshBefore =
-                now.minus(policy.refreshInterval());
+        Instant refreshBefore = now.minus(policy.refreshInterval());
 
         sessionRepository.refreshActivity(
                 sessionId,
