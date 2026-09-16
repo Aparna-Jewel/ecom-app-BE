@@ -98,7 +98,7 @@ public class AuthController {
             .secure(authCookieProperties.secure())
             .sameSite(authCookieProperties.sameSite())
             .path("/")
-            .maxAge(sessionProperties.absoluteTimeout())
+            .maxAge(sessionProperties.customer().absoluteTimeout())
             .build();
             csrfTokenRepository.saveToken(null, servletRequest, servletResponse);
 

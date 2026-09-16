@@ -4,6 +4,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.time.Clock;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.HexFormat;
@@ -18,6 +19,8 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ecom.foundation.auth.config.SessionProperties;
+import com.ecom.foundation.auth.config.SessionProperties.SessionPolicy;
+import com.ecom.foundation.auth.config.SessionType;
 import com.ecom.foundation.auth.dto.CreatedSession;
 import com.ecom.foundation.auth.entity.Account;
 import com.ecom.foundation.auth.entity.AccountRole;
@@ -58,22 +61,41 @@ public class SessionService {
         this.accountRoleRepository = accountRoleRepository;
     }
 
+
     @Transactional(propagation = Propagation.MANDATORY)
-    public CreatedSession createSession(Long accountId) {
+    public CreatedSession createSession(Long accountId, SessionType policy) {
         Objects.requireNonNull(accountId, "Account ID is required");
+        Objects.requireNonNull(policy, "Session policy is required");
+
+        Duration idleTimeout;
+        Duration absoluteTimeout;
+
+        if (policy == SessionType.CUSTOMER) {
+            idleTimeout = sessionProperties.customer().idleTimeout();
+            absoluteTimeout = sessionProperties.customer().absoluteTimeout();
+        } else if (policy == SessionType.STAFF) {
+            idleTimeout = sessionProperties.staff().idleTimeout();
+            absoluteTimeout = sessionProperties.staff().absoluteTimeout();
+        } else {
+            throw new IllegalArgumentException("Unsupported session policy: " + policy);
+        }
+
+        if (idleTimeout == null || absoluteTimeout == null || idleTimeout.isZero() || idleTimeout.isNegative() || absoluteTimeout.isZero() || absoluteTimeout.isNegative() || idleTimeout.compareTo(absoluteTimeout) > 0) {
+            throw new IllegalStateException("Invalid session timeout configuration");
+        }
 
         String rawSecret = generateSecret();
         String secretHash = hashSecret(rawSecret);
 
         Instant now = clock.instant();
 
-        AuthenticationSession session = new AuthenticationSession(accountId, secretHash, now, now.plus(sessionProperties.idleTimeout()), now.plus(sessionProperties.absoluteTimeout()));
+        AuthenticationSession session = new AuthenticationSession(accountId, secretHash, now, now.plus(idleTimeout), now.plus(absoluteTimeout)
+        );
 
         AuthenticationSession savedSession = sessionRepository.save(session);
 
         return new CreatedSession(rawSecret, savedSession);
     }
-    
     @Transactional(readOnly = true)
     public SessionPrincipal authenticate(String rawSecret) {
         if (rawSecret == null || !rawSecret.matches("^[A-Za-z0-9_-]{43}$")) {

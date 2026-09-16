@@ -9,6 +9,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.ecom.foundation.auth.config.SessionType;
 import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
 import com.ecom.foundation.auth.dto.CreatedSession;
 import com.ecom.foundation.auth.entity.Account;
@@ -90,7 +91,7 @@ public class AuthService {
         if (existingAccount.isPresent()) {
             Account accountEntry = existingAccount.get();
             validateCustomerLoginEligibility(accountEntry);
-            CreatedSession createdSession = sessionService.createSession(accountEntry.getId());
+            CreatedSession createdSession = sessionService.createSession(accountEntry.getId(), SessionType.CUSTOMER);
             return createdSession;
         }
 
