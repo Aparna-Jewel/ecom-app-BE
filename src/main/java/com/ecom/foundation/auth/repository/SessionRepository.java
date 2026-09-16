@@ -30,4 +30,19 @@ public interface SessionRepository extends JpaRepository<AuthenticationSession, 
         @Param("secretHash") String secretHash,
         @Param("reason") String Reason
     );
+
+    @Modifying 
+    @Query("""
+            UPDATE AuthenticationSession s
+            SET S.idleExpiresAt = :newIdealExpiryAt,
+                s.lastActivityAt = :now
+            WHERE s.id = :id
+            AND s.revokedAt is null
+            AND s.revocationReason is null
+            """)
+    int refreshActivity(
+        @Param("id") Long id,
+        @Param("now") Instant now,
+        @Param("newIdealExpiryAt") Instant newIdealExpiryAt
+    );
 }
