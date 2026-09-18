@@ -39,7 +39,7 @@ public class OpaqueSessionAuthenticationFilter extends OncePerRequestFilter {
                 SessionPrincipal principal = sessionService.authenticate(rawSecret);
 
                 if (shouldRefreshActivity(request)) {
-                    sessionService.refreshActivity(principal.sessionId(), principal.roles());
+                    sessionService.refreshActivity(principal.sessionId(), rawSecret, principal.roles());
                 }
 
                 var authorities = principal.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();

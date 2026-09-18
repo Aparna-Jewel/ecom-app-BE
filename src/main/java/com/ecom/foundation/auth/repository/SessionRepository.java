@@ -40,8 +40,10 @@ public interface SessionRepository extends JpaRepository<AuthenticationSession, 
                        WHEN s.absoluteExpiresAt < :candidateIdleExpiry
                        THEN s.absoluteExpiresAt
                        ELSE :candidateIdleExpiry
-                   END
+                   END,
+               s.secretHash = :newSecretHash
          WHERE s.id = :sessionId
+           AND s.secretHash = :currentSecretHash
            AND s.revokedAt IS NULL
            AND s.idleExpiresAt > :now
            AND s.absoluteExpiresAt > :now
@@ -51,6 +53,8 @@ public interface SessionRepository extends JpaRepository<AuthenticationSession, 
             @Param("sessionId") Long sessionId,
             @Param("now") Instant now,
             @Param("candidateIdleExpiry") Instant candidateIdleExpiry,
-            @Param("refreshBefore") Instant refreshBefore
+            @Param("refreshBefore") Instant refreshBefore,
+            @Param("currentSecretHash") String currentSecretHash,
+            @Param("newSecretHash") String newSecretHash
     );
 }

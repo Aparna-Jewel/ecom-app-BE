@@ -34,6 +34,10 @@ import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
 import com.ecom.foundation.common.helper.RandomGenerator;
 
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+
 @Service
 public class SessionService {
 
@@ -129,12 +133,19 @@ public class SessionService {
     }
 
     @Transactional
-    public void refreshActivity(Long sessionId, List<String> roles) {
+    public void refreshActivity(Long sessionId, String rawSecret ,List<String> roles) {
 
         Objects.requireNonNull(sessionId, "Session ID is required");
+        Objects.requireNonNull(rawSecret, "rawSecret is required");
         Objects.requireNonNull(roles, "Role is required");
 
         SessionPolicy policy;
+
+        String oldSecretHash = hashSecret(rawSecret);
+
+        String newRawSecret = generateSecret();
+        String newSecretHash = hashSecret(newRawSecret);
+
 
         if (roles.contains("CUSTOMER")) {
             policy = sessionProperties.customer();
@@ -154,7 +165,9 @@ public class SessionService {
                 sessionId,
                 now,
                 candidateIdleExpiry,
-                refreshBefore
+                refreshBefore,
+                oldSecretHash,
+                newSecretHash
         );
     }
 

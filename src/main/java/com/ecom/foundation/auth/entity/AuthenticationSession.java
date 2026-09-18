@@ -22,7 +22,7 @@ public class AuthenticationSession {
     @Column(name = "account_id", nullable = false, updatable = false)
     private Long accountId;
 
-    @Column (name = "secret_hash", nullable = false, length = 64, updatable = false)
+    @Column (name = "secret_hash", nullable = false, length = 64)
     private String secretHash;
 
     @Column (name = "created_at", nullable = false, updatable = false)
