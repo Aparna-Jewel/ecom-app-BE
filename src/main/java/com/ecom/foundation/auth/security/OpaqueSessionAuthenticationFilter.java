@@ -2,19 +2,31 @@ package com.ecom.foundation.auth.security;
 
 import java.io.IOException;
 
+import java.time.Clock;
+import java.time.Duration;
+import java.util.Optional;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.apache.catalina.security.SecurityConfig;
+import org.springframework.boot.actuate.web.exchanges.HttpExchange.Session;
+
 import org.springframework.dao.DataAccessException;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.ecom.foundation.auth.config.AuthCookieProperties;
+import com.ecom.foundation.auth.config.SecurityConfiguration;
+import com.ecom.foundation.auth.config.SessionProperties;
 import com.ecom.foundation.auth.service.SessionService;
 import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
@@ -23,10 +35,14 @@ public class OpaqueSessionAuthenticationFilter extends OncePerRequestFilter {
 
     private final SessionService sessionService;
     private final String cookieName;
+    private final AuthCookieProperties authCookieProperties;
+    private final Clock clock;
 
-    public OpaqueSessionAuthenticationFilter(SessionService sessionService, String cookieName) {
+    public OpaqueSessionAuthenticationFilter(SessionService sessionService, String cookieName, Clock clock, AuthCookieProperties authCookieProperties) {
         this.sessionService = sessionService;
         this.cookieName = cookieName;
+        this.authCookieProperties = authCookieProperties;
+        this.clock = clock;
     }
 
     @Override
@@ -36,20 +52,39 @@ public class OpaqueSessionAuthenticationFilter extends OncePerRequestFilter {
 
         if (rawSecret != null) {
             try {
-                SessionPrincipal principal = sessionService.authenticate(rawSecret);
+                    SessionPrincipal principal = sessionService.authenticate(rawSecret);
+                    Optional<String> rotatedSecret;
 
-                if (shouldRefreshActivity(request)) {
-                    sessionService.refreshActivity(principal.sessionId(), rawSecret, principal.roles());
-                }
+                     if (shouldRefreshActivity(request)) {
+                        rotatedSecret = sessionService.refreshActivity(principal.sessionId(), rawSecret, principal.roles());
+        
+                        if (rotatedSecret.isPresent()) {
+                        
+                            Duration remainingLifetime = Duration.between(clock.instant(), principal.absoluteExpiresAt());
+                                
+                            ResponseCookie sessionCookie = ResponseCookie
+                                            .from(authCookieProperties.name(), rotatedSecret.get())
+                                            .httpOnly(true)
+                                            .secure(authCookieProperties.secure())
+                                            .sameSite(authCookieProperties.sameSite())
+                                            .path("/")
+                                            .maxAge(remainingLifetime)
+                                            .build();
+                                        
+                            response.addHeader(HttpHeaders.SET_COOKIE,sessionCookie.toString());
+                        }
+                    }
 
-                var authorities = principal.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
+            
+                    var authorities = principal.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
+                
+                    var authentication = UsernamePasswordAuthenticationToken.authenticated(principal,null,authorities);
+                
+                    SecurityContext context = SecurityContextHolder.createEmptyContext();
+                
+                    context.setAuthentication(authentication);
+                    SecurityContextHolder.setContext(context);
 
-                var authentication = UsernamePasswordAuthenticationToken.authenticated(principal,null,authorities);
-
-                SecurityContext context = SecurityContextHolder.createEmptyContext();
-
-                context.setAuthentication(authentication);
-                SecurityContextHolder.setContext(context);
 
             } catch (ApplicationException exception) {
                 if (exception.getErrorCode() != ErrorCode.AUTHENTICATION_REQUIRED) {

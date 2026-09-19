@@ -12,8 +12,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 
-import org.hibernate.annotations.ListIndexJavaType;
-import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +21,6 @@ import com.ecom.foundation.auth.config.SessionProperties.SessionPolicy;
 import com.ecom.foundation.auth.config.SessionType;
 import com.ecom.foundation.auth.dto.CreatedSession;
 import com.ecom.foundation.auth.entity.Account;
-import com.ecom.foundation.auth.entity.AccountRole;
 import com.ecom.foundation.auth.entity.AccountStatus;
 import com.ecom.foundation.auth.entity.AuthenticationSession;
 import com.ecom.foundation.auth.repository.AccountRepository;
@@ -34,9 +31,6 @@ import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
 import com.ecom.foundation.common.helper.RandomGenerator;
 
-import jakarta.servlet.http.HttpServlet;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
 
 @Service
 public class SessionService {
@@ -128,12 +122,13 @@ public class SessionService {
             fetchedSessionData.getId(),
             account.getId(),
             account.getPublicId(),
-            roles
+            roles,
+            fetchedSessionData.getAbsoluteExpiresAt()
             );
     }
 
     @Transactional
-    public void refreshActivity(Long sessionId, String rawSecret ,List<String> roles) {
+    public Optional<String> refreshActivity(Long sessionId, String rawSecret, List<String> roles) {
 
         Objects.requireNonNull(sessionId, "Session ID is required");
         Objects.requireNonNull(rawSecret, "rawSecret is required");
@@ -152,8 +147,7 @@ public class SessionService {
 
         } else if (roles.contains("ADMIN") || roles.contains("OPS")) {
             policy = sessionProperties.staff();
-
-        } else return;
+        } else throw new ApplicationException(ErrorCode.INTERNAL_ERROR);
 
         Instant now = clock.instant();
 
@@ -161,14 +155,12 @@ public class SessionService {
 
         Instant refreshBefore = now.minus(policy.refreshInterval());
 
-        sessionRepository.refreshActivity(
-                sessionId,
-                now,
-                candidateIdleExpiry,
-                refreshBefore,
-                oldSecretHash,
-                newSecretHash
-        );
+        int upatedSessionDetais = sessionRepository.refreshActivity(sessionId, now, candidateIdleExpiry, refreshBefore, oldSecretHash, newSecretHash);
+        if(upatedSessionDetais == 1) {
+            return Optional.of(rawSecret);
+        } else {
+            return Optional.empty();
+        }
     }
 
     @Transactional 
