@@ -155,9 +155,10 @@ public class SessionService {
 
         Instant refreshBefore = now.minus(policy.refreshInterval());
 
-        int upatedSessionDetais = sessionRepository.refreshActivity(sessionId, now, candidateIdleExpiry, refreshBefore, oldSecretHash, newSecretHash);
-        if(upatedSessionDetais == 1) {
-            return Optional.of(rawSecret);
+        int upatedSessionDetails = sessionRepository.refreshActivity(sessionId, now, candidateIdleExpiry, refreshBefore, oldSecretHash, newSecretHash);
+        
+        if(upatedSessionDetails == 1) {
+            return Optional.of(newRawSecret);
         } else {
             return Optional.empty();
         }
