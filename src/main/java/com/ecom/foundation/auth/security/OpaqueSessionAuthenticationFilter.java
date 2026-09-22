@@ -1,142 +1,117 @@
 package com.ecom.foundation.auth.security;
 
 import java.io.IOException;
-
 import java.time.Clock;
 import java.time.Duration;
 import java.util.Optional;
 
-import jakarta.servlet.FilterChain;
-import jakarta.servlet.ServletException;
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-
-import org.apache.catalina.security.SecurityConfig;
-import org.springframework.boot.actuate.web.exchanges.HttpExchange.Session;
-
 import org.springframework.dao.DataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.ecom.foundation.auth.config.AuthCookieProperties;
-import com.ecom.foundation.auth.config.SecurityConfiguration;
-import com.ecom.foundation.auth.config.SessionProperties;
 import com.ecom.foundation.auth.service.SessionService;
-import com.ecom.foundation.common.error.ApplicationException;
-import com.ecom.foundation.common.error.ErrorCode;
+
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public class OpaqueSessionAuthenticationFilter extends OncePerRequestFilter {
 
+    private final AuthenticationManager authenticationManager;
+    private final OpaqueSessionAuthenticationConverter authenticationConverter;
     private final SessionService sessionService;
-    private final String cookieName;
     private final AuthCookieProperties authCookieProperties;
     private final Clock clock;
 
-    public OpaqueSessionAuthenticationFilter(SessionService sessionService, String cookieName, Clock clock, AuthCookieProperties authCookieProperties) {
+    public OpaqueSessionAuthenticationFilter(AuthenticationManager authenticationManager, OpaqueSessionAuthenticationConverter authenticationConverter, SessionService sessionService, AuthCookieProperties authCookieProperties, Clock clock) {
+        this.authenticationManager = authenticationManager;
+        this.authenticationConverter = authenticationConverter;
         this.sessionService = sessionService;
-        this.cookieName = cookieName;
         this.authCookieProperties = authCookieProperties;
         this.clock = clock;
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+        try {
 
-        String rawSecret = readSessionCookie(request);
+            Authentication authenticationRequest = authenticationConverter.convert(request);
 
-        if (rawSecret != null) {
-            try {
-                    SessionPrincipal principal = sessionService.authenticate(rawSecret);
-                    Optional<String> rotatedSecret;
+            if (authenticationRequest == null) {
+                    filterChain.doFilter(request, response);
+                    return;
+            }
 
-                     if (shouldRefreshActivity(request)) {
-                        rotatedSecret = sessionService.refreshActivity(principal.sessionId(), rawSecret, principal.roles());
-        
-                        if (rotatedSecret.isPresent()) {
-                        
-                            Duration remainingLifetime = Duration.between(clock.instant(), principal.absoluteExpiresAt());
-                                
-                            ResponseCookie sessionCookie = ResponseCookie
-                                            .from(authCookieProperties.name(), rotatedSecret.get())
-                                            .httpOnly(true)
-                                            .secure(authCookieProperties.secure())
-                                            .sameSite(authCookieProperties.sameSite())
-                                            .path("/")
-                                            .maxAge(remainingLifetime)
-                                            .build();
-                                        
-                            response.addHeader(HttpHeaders.SET_COOKIE,sessionCookie.toString());
-                        }
+            String rawSecret = (String) authenticationRequest.getCredentials();
+
+            Authentication authenticated = authenticationManager.authenticate(authenticationRequest);
+
+            SessionPrincipal principal = (SessionPrincipal) authenticated.getPrincipal();
+
+            if (shouldRefreshActivity(request)) {
+
+                Optional<String> rotatedSecret = sessionService.refreshActivity(principal.sessionId(), rawSecret, principal.roles());
+
+                if (rotatedSecret.isPresent()) {
+                    Duration remainingLifetime = Duration.between(clock.instant(), principal.absoluteExpiresAt());
+
+                    if (remainingLifetime.isNegative()) {
+                        remainingLifetime = Duration.ZERO;
                     }
 
-            
-                    var authorities = principal.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
-                
-                    var authentication = UsernamePasswordAuthenticationToken.authenticated(principal,null,authorities);
-                
-                    SecurityContext context = SecurityContextHolder.createEmptyContext();
-                
-                    context.setAuthentication(authentication);
-                    SecurityContextHolder.setContext(context);
+                    ResponseCookie sessionCookie = ResponseCookie
+                                    .from(authCookieProperties.name(), rotatedSecret.get())
+                                    .httpOnly(true)
+                                    .secure(authCookieProperties.secure())
+                                    .sameSite(authCookieProperties.sameSite())
+                                    .path("/")
+                                    .maxAge(remainingLifetime)
+                                    .build();
 
-
-            } catch (ApplicationException exception) {
-                if (exception.getErrorCode() != ErrorCode.AUTHENTICATION_REQUIRED) {
-                    throw exception;
+                    response.addHeader(HttpHeaders.SET_COOKIE, sessionCookie.toString());
                 }
-
-                SecurityContextHolder.clearContext();
-
-            } catch (DataAccessException exception) {
-                SecurityContextHolder.clearContext();
-                response.setHeader("Cache-Control", "no-store");
-                response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
-                return;
             }
+
+            SecurityContext context = SecurityContextHolder.createEmptyContext();
+
+            context.setAuthentication(authenticated);
+
+            SecurityContextHolder.setContext(context);
+
+        } catch (AuthenticationException exception) {
+            SecurityContextHolder.clearContext();
+        } catch (DataAccessException exception) {
+
+            SecurityContextHolder.clearContext();
+
+            response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
+            response.setStatus(HttpServletResponse.SC_SERVICE_UNAVAILABLE);
+
+            return;
         }
 
-        filterChain.doFilter(request, response);
+        filterChain.doFilter(request,response);
     }
 
-    private String readSessionCookie(HttpServletRequest request) {
-        Cookie[] cookies = request.getCookies();
-
-        if (cookies == null) {
-            return null;
-        }
-
-        String rawSecret = null;
-
-        for (Cookie cookie : cookies) {
-            if (cookieName.equals(cookie.getName())) {
-                if (rawSecret != null) {
-                    // Reject ambiguous duplicate session cookies.
-                    return null;
-                }
-
-                rawSecret = cookie.getValue();
-            }
-        }
-
-        return rawSecret;
-    }
     private boolean shouldRefreshActivity(HttpServletRequest request) {
 
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
             return false;
         }
-    
+
         String path = request.getServletPath();
-    
+
         return !path.equals("/auth/session")
                 && !path.equals("/api/security/csrf")
                 && !path.equals("/auth/logout")
                 && !path.startsWith("/actuator/");
-        }
+    }
 }

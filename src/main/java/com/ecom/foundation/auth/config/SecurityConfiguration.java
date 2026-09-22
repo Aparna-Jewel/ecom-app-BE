@@ -1,87 +1,106 @@
 package com.ecom.foundation.auth.config;
 
+import java.time.Clock;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
-import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 
+import com.ecom.foundation.auth.security.OpaqueSessionAuthenticationConverter;
 import com.ecom.foundation.auth.security.OpaqueSessionAuthenticationFilter;
+import com.ecom.foundation.auth.security.OpaqueSessionAuthenticationProvider;
 import com.ecom.foundation.auth.service.SessionService;
+
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.crypto.factory.PasswordEncoderFactories;
+import org.springframework.security.crypto.password.PasswordEncoder;
+
+import com.ecom.foundation.auth.service.StaffUserDetailsService;
 
 @Configuration
 public class SecurityConfiguration {
+        @Bean
+        public AuthenticationManager authenticationManager(OpaqueSessionAuthenticationProvider opaqueSessionAuthenticationProvider, DaoAuthenticationProvider staffDaoAuthenticationProvider) {
+                return new ProviderManager(opaqueSessionAuthenticationProvider, staffDaoAuthenticationProvider);
+        }
 
-    @Bean
-    public CookieCsrfTokenRepository csrfTokenRepository( AuthCookieProperties authCookieProperties ) {
-        CookieCsrfTokenRepository repository = new CookieCsrfTokenRepository();
+        @Bean
+        public CookieCsrfTokenRepository csrfTokenRepository(AuthCookieProperties authCookieProperties) {
 
-        repository.setCookieName("XSRF-TOKEN");
-        repository.setHeaderName("X-XSRF-TOKEN");
-        repository.setCookiePath("/");
+            CookieCsrfTokenRepository repository = new CookieCsrfTokenRepository();
 
-        repository.setCookieCustomizer(cookie ->
-            cookie
-                    .httpOnly(true)
-                    .secure(authCookieProperties.secure())
-                    .sameSite(authCookieProperties.sameSite())
-                    .path("/")
-    );
+            repository.setCookieName("XSRF-TOKEN");
+            repository.setHeaderName("X-XSRF-TOKEN");
+            repository.setCookiePath("/");
 
-        return repository;
-    }
+            repository.setCookieCustomizer(cookie -> cookie
+                            .httpOnly(true)
+                            .secure(authCookieProperties.secure())
+                            .sameSite(authCookieProperties.sameSite())
+                            .path("/")
+                    );
 
-    @Bean
-        public SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository, SessionService sessionService, 
-                AuthCookieProperties authCookieProperties) throws Exception {
-                http
-                        .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                        .requestCache(AbstractHttpConfigurer::disable)
-                        .formLogin(AbstractHttpConfigurer::disable)
-                        .httpBasic(AbstractHttpConfigurer::disable)
-                        .logout(AbstractHttpConfigurer::disable)
+            return repository;
+        }
 
-                        .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository).csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler()))
+        @Bean
+        public PasswordEncoder passwordEncoder() {
+            return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        }
 
-                        .authorizeHttpRequests(authorize -> authorize
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/api/security/csrf"
-                                ).permitAll()
+        @Bean
+        public DaoAuthenticationProvider staffDaoAuthenticationProvider(StaffUserDetailsService staffUserDetailsService, PasswordEncoder passwordEncoder) {
+            DaoAuthenticationProvider provider = new DaoAuthenticationProvider(staffUserDetailsService);
+            provider.setPasswordEncoder(passwordEncoder);
 
-                                .requestMatchers(
-                                        HttpMethod.POST,
-                                        "/auth/otp/send",
-                                        "/auth/otp/verify",
-                                        "/auth/customer/authenticate",
-                                        "/auth/logout"
-                                ).permitAll()
+            return provider;
+        }
 
-                                .requestMatchers(
-                                        HttpMethod.GET,
-                                        "/auth/session",
-                                        "/auth/account"
-                                ).authenticated()
+        @Bean
+        public SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository, SessionService sessionService, AuthCookieProperties authCookieProperties, AuthenticationManager authenticationManager,
+            OpaqueSessionAuthenticationConverter authenticationConverter, Clock clock) throws Exception {
 
-                                .anyRequest().denyAll()
-                        )
+            OpaqueSessionAuthenticationFilter opaqueSessionFilter = new OpaqueSessionAuthenticationFilter(authenticationManager, authenticationConverter, sessionService, authCookieProperties, clock);
 
-                        .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))
-                                .accessDeniedHandler((request, response, exception) ->response.setStatus(HttpStatus.FORBIDDEN.value()))
-                            );
+            http
+                .sessionManagement(session ->session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .requestCache(AbstractHttpConfigurer::disable)
+                .formLogin(AbstractHttpConfigurer::disable)
+                .httpBasic(AbstractHttpConfigurer::disable)
+                .logout(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository).csrfTokenRequestHandler(new XorCsrfTokenRequestAttributeHandler()))
+                .authorizeHttpRequests(authorize -> authorize.requestMatchers(HttpMethod.GET,"/api/security/csrf").permitAll()
+                .requestMatchers(
+                            HttpMethod.POST,
+                            "/auth/otp/send",
+                            "/auth/otp/verify",
+                            "/auth/customer/authenticate",
+                            "/auth/logout"
+                )
+                .permitAll()
+                .requestMatchers(
+                        HttpMethod.GET,
+                        "/auth/session",
+                        "/auth/account"
+                )
+                .authenticated()                
+                .anyRequest()
+                .denyAll())
+                .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(new HttpStatusEntryPoint(HttpStatus.UNAUTHORIZED))         
+                .accessDeniedHandler((request, response, exception) -> response.setStatus(HttpStatus.FORBIDDEN.value())));
 
-                http.addFilterBefore(
-                        new OpaqueSessionAuthenticationFilter(sessionService, authCookieProperties.name()),
-                        UsernamePasswordAuthenticationFilter.class
-                );
-
-                return http.build();
-    }
+            http.addFilterBefore(opaqueSessionFilter, AnonymousAuthenticationFilter.class);
+            return http.build();
+        }
 }
