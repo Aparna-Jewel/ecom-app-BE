@@ -39,9 +39,11 @@ spring:
     validate-migration-naming: true
     baseline-on-migrate: false
   
-  security:
-    login:
-      max-failed-attempts: 3
-      lock-duration: 30m
   config:
     import: "file:./.env[.properties]"
+app:
+  security:
+    cookie:
+      name: AJ_SESSION
+      secure: false
+      same-site: Lax

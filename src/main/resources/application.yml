@@ -2,9 +2,6 @@ spring:
   application:
     name: ecommerce-foundation
 
-  profiles:
-    active: local
-
 server:
   port: 8080
 
@@ -23,6 +20,10 @@ app:
   version: 0.0.1
   environment: ${spring.profiles.active}
   security:
+    cookie:
+      name: ${AUTH_SESSION_COOKIE_NAME:__Host-AJ_SESSION}
+      secure: ${AUTH_COOKIE_SECURE:true}
+      same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
     otp:
       validity: 5m
       resend-delay: 60s
@@ -30,7 +31,7 @@ app:
       cooloff-period: 30m
       max-verification-attempt: 3
       code-lengths:
-        customer-signup: 6
+        customer-auth: 6
         admin-login: 8
         ops-login: 8
 
@@ -52,8 +53,16 @@ app:
 
         private-key: ${JWT_OTP_PROOF_PRIVATE_KEY_LOCATION}
         public-key: ${JWT_OTP_PROOF_PUBLIC_KEY_LOCATION}
+    session:
+      customer:
+        idle-timeout: 7d
+        absolute-timeout: 30d
+        refresh-interval: 6h
+      staff:
+        idle-timeout: 1h
+        absolute-timeout: 24h
+        refresh-interval: 15m
   redis:
     key:
       namespace: aj
       environment: ${APP_ENV:${spring.profiles.active}}
-      
