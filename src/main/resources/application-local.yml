@@ -23,13 +23,16 @@ spring:
       connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       timeout: ${REDIS_COMMAND_TIMEOUT:2s}
       client-name: "${REDIS_CLIENT_NAME:aparna-jewels-local}"
+
       repositories:
         enabled: false
 
   jpa:
     open-in-view: false
+
     hibernate:
       ddl-auto: validate
+
     properties:
       hibernate:
         jdbc:
@@ -40,7 +43,7 @@ spring:
     locations: classpath:db/migration
     validate-migration-naming: true
     baseline-on-migrate: false
-  
+
   security:
     login:
       max-failed-attempts: 3
@@ -49,6 +52,7 @@ spring:
   config:
     import: "file:./.env[.properties]"
 
+app:
   security:
     cookie:
       name: AJ_SESSION
