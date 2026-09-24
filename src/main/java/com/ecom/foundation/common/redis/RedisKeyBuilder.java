@@ -18,17 +18,20 @@ public class RedisKeyBuilder {
         String resource,
         String identifierToken
     ) {
-        String normalizedModule = validateAndNormaliseString("module", module);
-        String normalizedResource = validateAndNormaliseString("resource", resource);
-        String normalizedIndetifier = validateAndNormaliseIdentifierToken(identifierToken);
+        StringBuilder key = new StringBuilder()
+                            .append(properties.namespace())
+                            .append(":")
+                            .append(properties.environment());
+        appendIfPresent(key, module);
+        appendIfPresent(key, resource);
+        appendIfPresent(key, identifierToken);
+    
+        return key.toString();
+    }
 
-        return String.join(
-            ":",
-            properties.namespace(),
-            properties.environment(),
-            normalizedModule,
-            normalizedResource,
-            normalizedIndetifier
-        );
+    public static void appendIfPresent(StringBuilder key, String value) {
+        if(value != null) {
+            key.append(":").append(value);
+        }
     }
 }
