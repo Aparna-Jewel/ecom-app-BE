@@ -1,9 +1,10 @@
 spring:
   application:
     name: ecommerce-foundation
-
-  profiles:
-    active: local
+  
+  session:
+      redis:
+        repository-type: indexed
 
 server:
   port: 8080
@@ -52,9 +53,6 @@ app:
 
         private-key: ${JWT_OTP_PROOF_PRIVATE_KEY_LOCATION}
         public-key: ${JWT_OTP_PROOF_PUBLIC_KEY_LOCATION}
-    session:
-      redis:
-        repository-type: indexed
       customer:
         idle-timeout: 7d
         absolute-timeout: 30d
