@@ -12,6 +12,7 @@ spring:
       validation-timeout: 5000
       idle-timeout: 600000
       max-lifetime: 1800000
+
   data:
     redis:
       host: ${REDIS_HOST:127.0.0.1}
@@ -24,6 +25,7 @@ spring:
       client-name: "${REDIS_CLIENT_NAME:aparna-jewels-local}"
       repositories:
         enabled: false
+
   jpa:
     open-in-view: false
     hibernate:
@@ -43,5 +45,12 @@ spring:
     login:
       max-failed-attempts: 3
       lock-duration: 30m
+
   config:
     import: "file:./.env[.properties]"
+
+  security:
+    cookie:
+      name: AJ_SESSION
+      secure: false
+      same-site: Lax

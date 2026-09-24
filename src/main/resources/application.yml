@@ -24,6 +24,11 @@ app:
   version: 0.0.1
   environment: ${spring.profiles.active}
   security:
+    cookie:
+      name: ${AUTH_SESSION_COOKIE_NAME:__Host-AJ_SESSION}
+      secure: ${AUTH_COOKIE_SECURE:true}
+      same-site: ${AUTH_COOKIE_SAME_SITE:Lax}
+
     otp:
       validity: 5m
       resend-delay: 60s
@@ -42,6 +47,7 @@ app:
       hmac:
         key-id: ${OTP_HMAC_KEY_ID:v1}
         key-base64: ${OTP_HMAC_KEY_BASE64}
+    
     jwt:
       otp-proof:
         issuer: ${JWT_OTP_PROOF_ISSUER:aparna-jewels}
@@ -53,14 +59,17 @@ app:
 
         private-key: ${JWT_OTP_PROOF_PRIVATE_KEY_LOCATION}
         public-key: ${JWT_OTP_PROOF_PUBLIC_KEY_LOCATION}
+      
       customer:
         idle-timeout: 7d
         absolute-timeout: 30d
         refresh-interval: 6h
+      
       staff:
         idle-timeout: 1h
         absolute-timeout: 24h
         refresh-interval: 15m
+  
   redis:
     key:
       namespace: aj
