@@ -60,15 +60,15 @@ app:
         private-key: ${JWT_OTP_PROOF_PRIVATE_KEY_LOCATION}
         public-key: ${JWT_OTP_PROOF_PUBLIC_KEY_LOCATION}
       
-      customer:
-        idle-timeout: 7d
-        absolute-timeout: 30d
-        refresh-interval: 6h
-      
-      staff:
-        idle-timeout: 1h
-        absolute-timeout: 24h
-        refresh-interval: 15m
+    customer:
+      idle-timeout: 7d
+      absolute-timeout: 30d
+      refresh-interval: 6h
+    
+    staff:
+      idle-timeout: 1h
+      absolute-timeout: 24h
+      refresh-interval: 15m
   
   redis:
     key:
