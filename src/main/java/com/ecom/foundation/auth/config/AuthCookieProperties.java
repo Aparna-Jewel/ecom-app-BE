@@ -33,8 +33,7 @@ public record AuthCookieProperties(
             return true;
         }
 
-        return !"None".equalsIgnoreCase(sameSite)
-                || Boolean.TRUE.equals(secure);
+        return !"None".equalsIgnoreCase(sameSite) || Boolean.TRUE.equals(secure);
     }
 
     @AssertTrue(message = "__Host- cookies require Secure=true")
@@ -43,7 +42,6 @@ public record AuthCookieProperties(
             return true;
         }
 
-        return !name.startsWith("__Host-")
-                || Boolean.TRUE.equals(secure);
+        return !name.startsWith("__Host-") || Boolean.TRUE.equals(secure);
     }
 }
