@@ -17,13 +17,4 @@ public interface AccountRepository extends JpaRepository<Account, Long> {
     Optional<Account> findByMobile(String mobile);
     boolean existsByEmail(String email);
     boolean existsByMobile(String mobile);
-
-    @Query("""
-    select r.code
-    from AccountRole ar
-    join ar.role r
-    where ar.account.id = :accountId
-    order by r.code
-    """)
-    List<String> findRoleCodesByAccountId(@Param("accountId") Long accountId);
 }

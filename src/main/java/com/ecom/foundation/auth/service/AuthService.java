@@ -14,11 +14,13 @@ import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
 import com.ecom.foundation.auth.entity.Account;
 import com.ecom.foundation.auth.entity.AccountRole;
 import com.ecom.foundation.auth.entity.AccountStatus;
+import com.ecom.foundation.auth.entity.CustomerProfile;
 import com.ecom.foundation.auth.entity.Role;
 import com.ecom.foundation.auth.jwt.service.JwtService;
 import com.ecom.foundation.auth.otpSetup.config.OtpContext;
 import com.ecom.foundation.auth.repository.AccountRepository;
 import com.ecom.foundation.auth.repository.AccountRoleRepository;
+import com.ecom.foundation.auth.repository.CustomerProfileRepository;
 import com.ecom.foundation.auth.repository.RoleRepository;
 import com.ecom.foundation.common.error.ApplicationException;
 import com.ecom.foundation.common.error.ErrorCode;
@@ -50,9 +52,13 @@ public class AuthService {
     @Autowired 
     private AccountRoleRepository accountRoleRepository;
 
-
-
+    @Autowired 
+    private CustomerProfileRepository customerProfileRepository;\
+    
     private Clock clock;
+    public AuthService(Clock clock) {
+        this.clock = clock;
+    }
 
     @Transactional(readOnly =true)
     public Optional<Account> getAccountByMobile(String mobile, Clock clock) {
@@ -94,5 +100,6 @@ public class AuthService {
 
         termsAcceptanceRepository.save(new TermsAcceptance(savedAccount.getId(), getActiveTerms));
 
+        customerProfileRepository.save(new CustomerProfile(savedAccount.getId(), name));
     }
 }
