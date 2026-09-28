@@ -9,9 +9,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
 import com.ecom.foundation.auth.otpSetup.dto.OtpChallengeResponse;
 import com.ecom.foundation.auth.otpSetup.dto.OtpRequestModel;
 import com.ecom.foundation.auth.otpSetup.service.*;
+import com.ecom.foundation.auth.service.AuthService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -25,8 +27,10 @@ public class AuthController {
     private final Logger log = LoggerFactory.getLogger(AuthController.class);
 
     private OtpService otpService;
-    public AuthController(OtpService otpService) {
+    private AuthService authService;
+    public AuthController(OtpService otpService, AuthService authService) {
         this.otpService = otpService;
+        this.authService = authService;
     }
 
     @PostMapping("otp/send")
@@ -47,5 +51,11 @@ public class AuthController {
         log.info("Started processing request for request {}", request.toString());
         String response = otpService.verifyOtp(request);
         return ResponseEntity.accepted().body(response);
+    }
+
+    @PostMapping("/customer/authenticate")
+    public ResponseEntity<Void> authenticateCustomer(@Valid @RequestBody AuthenticateRequestModel request) {
+        authService.authenticateCustomerRequest(request);
+        return ResponseEntity.ok().build();
     }
 }

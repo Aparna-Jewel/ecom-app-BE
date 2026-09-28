@@ -46,6 +46,12 @@ public class Account{
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
+    @Column(name = "mobile_verified_at")
+    private Instant mobileVerifiedAt;
+
+    @Column(name = "locked_until")
+    private Instant lockedUntil;
+
     protected Account() {
         // Default constructor for JPA
     }
@@ -68,4 +74,13 @@ public class Account{
         this.failedLoginCount = (short) 0;
     }
 
+    public void markMobileVerified(Instant verifiedAt) {
+        if (verifiedAt == null) {
+            throw new IllegalArgumentException(
+                    "Verified time cannot be null"
+            );
+        }
+        this.mobileVerifiedAt = verifiedAt;
+        this.updatedAt = verifiedAt;
+    }
 }

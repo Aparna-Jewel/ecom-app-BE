@@ -45,31 +45,22 @@ public class SecurityConfiguration {
             .formLogin(AbstractHttpConfigurer::disable)
             .httpBasic(AbstractHttpConfigurer::disable)
             .logout(AbstractHttpConfigurer::disable)
-            .csrf(csrf -> csrf .csrfTokenRepository(csrfTokenRepository) .csrfTokenRequestHandler(csrfRequestHandler))
+            .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository).csrfTokenRequestHandler(csrfRequestHandler))
             .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.GET,"/api/security/csrf")
-                        .permitAll()
-                        .requestMatchers(
+                .requestMatchers(HttpMethod.GET,"/api/security/csrf").permitAll()
+                .requestMatchers(
                                 HttpMethod.POST,
                                 "/auth/otp/send",
                                 "/auth/otp/verify",
                                 "/auth/customer/authenticate"
-                        )
-                        .permitAll()
-                        .requestMatchers(
+                    ).permitAll()
+                .requestMatchers(
                                 HttpMethod.GET,
                                 "/actuator/health",
                                 "/actuator/info"
-                        )
-                        .permitAll()
-
-                        /*
-                         * We'll add authenticated customer APIs here later.
-                         *
-                         * Everything not explicitly exposed stays closed.
-                         */
-                        .anyRequest()
-                        .denyAll()
+                    ).permitAll()
+                .anyRequest()
+                .denyAll()
                 )
 
                 /*
