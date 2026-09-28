@@ -5,6 +5,7 @@ spring:
   session:
     redis:
       repository-type: indexed
+      configure-action: none
 
 server:
   port: 8080

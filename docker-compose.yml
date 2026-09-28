@@ -21,9 +21,13 @@ services:
   redis:
     image: redis:7.4.7-alpine
     container_name: aparna-redis
+
     environment:
       REDIS_USERNAME: ${REDIS_USERNAME:?REDIS_USERNAME is required}
       REDIS_PASSWORD: ${REDIS_PASSWORD:?REDIS_PASSWORD is required}
+      REDIS_DATABASE: ${REDIS_DATABASE:-0}
+      APP_ENV: ${APP_ENV:-local}
+
     command:
       - /bin/sh
       - -ec
@@ -32,23 +36,32 @@ services:
 
         printf '%s\n' \
           'user default off' \
-          "user $${REDIS_USERNAME} on >$${REDIS_PASSWORD} ~aj:* +@connection +get +set +del +unlink +exists +expire +pexpire +ttl +pttl +persist +info +eval +evalsha" \
+          "user $${REDIS_USERNAME} on >$${REDIS_PASSWORD} resetkeys ~aj:* resetchannels &aj:$${APP_ENV}:auth:session:event:$${REDIS_DATABASE}:created:* &__keyevent@$${REDIS_DATABASE}__:del &__keyevent@$${REDIS_DATABASE}__:expired +@connection +get +set +del +unlink +exists +expire +pexpire +ttl +pttl +persist +info +eval +evalsha +hset +hgetall +hdel +sadd +srem +smembers +append +rename +publish +subscribe +unsubscribe +psubscribe +punsubscribe" \
           > /tmp/users.acl
-    
+
         exec redis-server \
           --appendonly yes \
+          --notify-keyspace-events Egx \
           --aclfile /tmp/users.acl
+
     ports:
       - "127.0.0.1:6379:6379"
+
     volumes:
       - aparna_redis_data:/data
+
     healthcheck:
-      test: ["CMD-SHELL", "redis-cli --user \"$$REDIS_USERNAME\" --pass \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      test:
+        [
+          "CMD-SHELL",
+          "redis-cli --user \"$$REDIS_USERNAME\" --pass \"$$REDIS_PASSWORD\" ping | grep -q PONG"
+        ]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 10s
-    restart: unless-stopped
+
+  restart: unless-stopped
 
 volumes:
   aparna_postgres_data:
