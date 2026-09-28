@@ -50,51 +50,25 @@ public class SessionAuthenticationService {
 
     public void establishCustomerSession(CustomerIdentity identity, HttpServletRequest request, HttpServletResponse response) {
 
-        List<SimpleGrantedAuthority> authorities = identity.roles()
-                        .stream()
-                        .map(role ->
-                                new SimpleGrantedAuthority(
-                                        "ROLE_" + role
-                                )
-                        )
-                        .toList();
+        List<SimpleGrantedAuthority> authorities = identity.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
 
-        Authentication authentication =
-                UsernamePasswordAuthenticationToken.authenticated(
-                        identity.publicId(),
-                        null,
-                        authorities
-                );
+        Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(identity.publicId(), null, authorities);
 
         /*
          * Protect an already-existing pre-auth session from
          * session fixation.
          */
-        sessionAuthenticationStrategy.onAuthentication(
-                authentication,
-                request,
-                response
-        );
+        sessionAuthenticationStrategy.onAuthentication( authentication, request, response);
 
-        HttpSession session =
-                request.getSession(true);
+        HttpSession session = request.getSession(true);
 
-        Instant now =
-                clock.instant();
+        Instant now = clock.instant();
 
-        SessionProperties.SessionPolicy policy =
-                sessionProperties.customer();
+        SessionProperties.SessionPolicy policy = sessionProperties.customer();
 
-        session.setMaxInactiveInterval(
-                Math.toIntExact(
-                        policy.idleTimeout().toSeconds()
-                )
-        );
+        session.setMaxInactiveInterval(Math.toIntExact(policy.idleTimeout().toSeconds()));
 
-        session.setAttribute(
-                SESSION_TYPE,
-                "CUSTOMER"
-        );
+        session.setAttribute(SESSION_TYPE, "CUSTOMER");
 
         session.setAttribute(
                 ACCOUNT_PUBLIC_ID,
