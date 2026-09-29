@@ -53,7 +53,7 @@ public class AuthService {
     private AccountRoleRepository accountRoleRepository;
 
     @Autowired 
-    private CustomerProfileRepository customerProfileRepository;\
+    private CustomerProfileRepository customerProfileRepository;
     
     private Clock clock;
     public AuthService(Clock clock) {

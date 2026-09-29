@@ -15,7 +15,7 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.stereotype.Service;
 
 import com.ecom.foundation.auth.config.SessionProperties;
-import com.ecom.foundation.auth.dto.CustomerIdentity;
+import com.ecom.foundation.auth.dto.UserIdentity;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -48,16 +48,12 @@ public class SessionAuthenticationService {
         this.clock = clock;
     }
 
-    public void establishCustomerSession(CustomerIdentity identity, HttpServletRequest request, HttpServletResponse response) {
+    public void establishCustomerSession(UserIdentity identity, HttpServletRequest request, HttpServletResponse response) {
 
         List<SimpleGrantedAuthority> authorities = identity.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
 
         Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(identity.publicId(), null, authorities);
 
-        /*
-         * Protect an already-existing pre-auth session from
-         * session fixation.
-         */
         sessionAuthenticationStrategy.onAuthentication( authentication, request, response);
 
         HttpSession session = request.getSession(true);
@@ -70,44 +66,20 @@ public class SessionAuthenticationService {
 
         session.setAttribute(SESSION_TYPE, "CUSTOMER");
 
-        session.setAttribute(
-                ACCOUNT_PUBLIC_ID,
-                identity.publicId()
-        );
+        session.setAttribute(ACCOUNT_PUBLIC_ID, identity.publicId());
 
-        session.setAttribute(
-                ABSOLUTE_EXPIRES_AT,
-                now.plus(policy.absoluteTimeout())
-        );
+        session.setAttribute(ABSOLUTE_EXPIRES_AT, now.plus(policy.absoluteTimeout()));
 
-        session.setAttribute(
-                ID_REFRESHED_AT,
-                now
-        );
+        session.setAttribute(ID_REFRESHED_AT, now);
 
-        SecurityContext context =
-                SecurityContextHolder.createEmptyContext();
+        SecurityContext context = SecurityContextHolder.createEmptyContext();
 
         context.setAuthentication(authentication);
 
         SecurityContextHolder.setContext(context);
 
-        securityContextRepository.saveContext(
-                context,
-                request,
-                response
-        );
+        securityContextRepository.saveContext(context, request, response);
 
-        /*
-         * Authentication boundary crossed.
-         *
-         * The pre-auth CSRF token should no longer continue
-         * into the authenticated session.
-         */
-        csrfTokenRepository.saveToken(
-                null,
-                request,
-                response
-        );
+        csrfTokenRepository.saveToken( null, request, response);
     }
 }
