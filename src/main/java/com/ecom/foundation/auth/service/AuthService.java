@@ -2,6 +2,7 @@ package com.ecom.foundation.auth.service;
 
 import java.time.Clock;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,6 +12,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
+import com.ecom.foundation.auth.dto.UserIdentity;
 import com.ecom.foundation.auth.entity.Account;
 import com.ecom.foundation.auth.entity.AccountRole;
 import com.ecom.foundation.auth.entity.AccountStatus;
@@ -54,6 +56,9 @@ public class AuthService {
 
     @Autowired 
     private CustomerProfileRepository customerProfileRepository;
+
+    @Autowired 
+    private SessionAuthenticationService sessionAuthenticationService;
     
     private Clock clock;
     public AuthService(Clock clock) {
@@ -65,13 +70,16 @@ public class AuthService {
         return accountRepository.findByMobile(mobile);
     }
 
-    public void authenticateCustomerRequest(AuthenticateRequestModel request){
+    public UserIdentity authenticateCustomerRequest(AuthenticateRequestModel request){
         String isdMobileNumber = request.isd() + request.mobile();
         
         jwtService.validateAndConsumeJwt(request.token(), request.isd(), request.mobile(), OtpContext.CUSTOMER_SIGNUP);
-        Optional<Account> requestAccount = accountRepository.findByMobile(isdMobileNumber).orElse();
+        Optional<Account> requestAccount = accountRepository.findByMobile(isdMobileNumber);
         
         if(requestAccount.isPresent()) {
+            Account account = requestAccount.get();
+            validateCustomerLoginEligibility(account);
+            return new UserIdentity(account.getPublicId(), List.of("CUSTOMER"));
         }
 
         if (request.name() == null || request.name().isBlank() || request.termId() == null) {
@@ -101,5 +109,26 @@ public class AuthService {
         termsAcceptanceRepository.save(new TermsAcceptance(savedAccount.getId(), getActiveTerms));
 
         customerProfileRepository.save(new CustomerProfile(savedAccount.getId(), name));
+
+        return new UserIdentity(savedAccount.getPublicId(), List.of("CUSTOMER"));
+    }
+
+    private void validateCustomerLoginEligibility(Account account) {
+
+        if (account.getStatus() != AccountStatus.ACTIVE) {
+            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
+        }
+
+        Instant now = clock.instant();
+
+        if (account.getLockedUntil() != null && now.isBefore(account.getLockedUntil())) {
+            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
+        }
+
+        List<String> roles = accountRoleRepository.findRoleCodesByAccountId(account.getId());
+
+        if (!roles.contains("CUSTOMER") || roles.contains("ADMIN") || roles.contains("OPS")) {
+            throw new ApplicationException(ErrorCode.AUTHENTICATION_REQUIRED);
+        }
     }
 }

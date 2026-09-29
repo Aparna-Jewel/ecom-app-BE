@@ -2,6 +2,7 @@ package com.ecom.foundation.auth.controller;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.CacheControl;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -10,12 +11,16 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.ecom.foundation.auth.dto.AuthenticateRequestModel;
+import com.ecom.foundation.auth.dto.EstablishedSession;
+import com.ecom.foundation.auth.dto.UserIdentity;
 import com.ecom.foundation.auth.otpSetup.dto.OtpChallengeResponse;
 import com.ecom.foundation.auth.otpSetup.dto.OtpRequestModel;
 import com.ecom.foundation.auth.otpSetup.service.*;
 import com.ecom.foundation.auth.service.AuthService;
+import com.ecom.foundation.auth.service.SessionAuthenticationService;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 
 @RestController
@@ -28,9 +33,11 @@ public class AuthController {
 
     private OtpService otpService;
     private AuthService authService;
-    public AuthController(OtpService otpService, AuthService authService) {
+    private SessionAuthenticationService sessionAuthenticationService;
+    public AuthController(OtpService otpService, AuthService authService, SessionAuthenticationService sessionAuthenticationService) {
         this.otpService = otpService;
         this.authService = authService;
+        this.sessionAuthenticationService = sessionAuthenticationService;
     }
 
     @PostMapping("otp/send")
@@ -54,8 +61,12 @@ public class AuthController {
     }
 
     @PostMapping("/customer/authenticate")
-    public ResponseEntity<Void> authenticateCustomer(@Valid @RequestBody AuthenticateRequestModel request) {
-        authService.authenticateCustomerRequest(request);
-        return ResponseEntity.ok().build();
+    public ResponseEntity<EstablishedSession> authenticateCustomer(@Valid @RequestBody AuthenticateRequestModel request, HttpServletRequest servletRequest, HttpServletResponse servletResponse) {
+
+        UserIdentity identity = authService.authenticateCustomerRequest(request);
+
+        EstablishedSession establishedSession = sessionAuthenticationService.establishSession(identity, servletRequest, servletResponse);
+
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(establishedSession);
     }
 }

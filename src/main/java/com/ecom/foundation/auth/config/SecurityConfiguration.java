@@ -9,6 +9,8 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
+import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.DelegatingSecurityContextRepository;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
@@ -98,5 +100,10 @@ public class SecurityConfiguration {
                     new RequestAttributeSecurityContextRepository(),
                     new HttpSessionSecurityContextRepository()
             );
+        }
+
+        @Bean
+        SessionAuthenticationStrategy sessionAuthenticationStrategy() {
+            return new ChangeSessionIdAuthenticationStrategy();
         }
 }
