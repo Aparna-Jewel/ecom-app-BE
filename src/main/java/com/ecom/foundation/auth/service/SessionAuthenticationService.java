@@ -15,7 +15,9 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 import org.springframework.stereotype.Service;
 
 import com.ecom.foundation.auth.config.SessionProperties;
+import com.ecom.foundation.auth.dto.EstablishedSession;
 import com.ecom.foundation.auth.dto.UserIdentity;
+import com.ecom.foundation.auth.service.SessionPolicyResolver.ResolvedSessionPolicy;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,40 +37,42 @@ public class SessionAuthenticationService {
     private final SecurityContextRepository securityContextRepository;
     private final SessionAuthenticationStrategy sessionAuthenticationStrategy;
 
-    private final CookieCsrfTokenRepository csrfTokenRepository;
-
-    private final SessionProperties sessionProperties;
     private final Clock clock;
 
-    public SessionAuthenticationService(SecurityContextRepository securityContextRepository, SessionAuthenticationStrategy sessionAuthenticationStrategy, CookieCsrfTokenRepository csrfTokenRepository, SessionProperties sessionProperties, Clock clock) {
+    private final SessionPolicyResolver sessionPolicyResolver;
+
+    public SessionAuthenticationService(SecurityContextRepository securityContextRepository, SessionAuthenticationStrategy sessionAuthenticationStrategy, SessionPolicyResolver sessiSessionPolicyResolver ,Clock clock) {
         this.securityContextRepository = securityContextRepository;
         this.sessionAuthenticationStrategy = sessionAuthenticationStrategy;
-        this.csrfTokenRepository = csrfTokenRepository;
-        this.sessionProperties = sessionProperties;
+        this.sessionPolicyResolver = sessiSessionPolicyResolver;
         this.clock = clock;
     }
 
-    public void establishCustomerSession(UserIdentity identity, HttpServletRequest request, HttpServletResponse response) {
+    public EstablishedSession establishSession(UserIdentity identity, HttpServletRequest request, HttpServletResponse response) {
 
-        List<SimpleGrantedAuthority> authorities = identity.roles().stream().map(role -> new SimpleGrantedAuthority("ROLE_" + role)).toList();
+        List<SimpleGrantedAuthority> authorities = identity.roles().stream().map(role ->new SimpleGrantedAuthority("ROLE_" + role)).toList();
 
         Authentication authentication = UsernamePasswordAuthenticationToken.authenticated(identity.publicId(), null, authorities);
 
-        sessionAuthenticationStrategy.onAuthentication( authentication, request, response);
+        ResolvedSessionPolicy resolved = sessionPolicyResolver.resolve(authorities);
+
+        SessionProperties.SessionPolicy policy = resolved.policy();
+
+        sessionAuthenticationStrategy.onAuthentication(authentication, request, response);
 
         HttpSession session = request.getSession(true);
 
         Instant now = clock.instant();
 
-        SessionProperties.SessionPolicy policy = sessionProperties.customer();
-
         session.setMaxInactiveInterval(Math.toIntExact(policy.idleTimeout().toSeconds()));
 
-        session.setAttribute(SESSION_TYPE, "CUSTOMER");
+        Instant absoluteExpiresAt = now.plus(policy.absoluteTimeout());
 
-        session.setAttribute(ACCOUNT_PUBLIC_ID, identity.publicId());
+        session.setAttribute(SESSION_TYPE, resolved.type().name());
 
-        session.setAttribute(ABSOLUTE_EXPIRES_AT, now.plus(policy.absoluteTimeout()));
+        session.setAttribute( ACCOUNT_PUBLIC_ID, identity.publicId());
+
+        session.setAttribute(ABSOLUTE_EXPIRES_AT, absoluteExpiresAt);
 
         session.setAttribute(ID_REFRESHED_AT, now);
 
@@ -78,8 +82,8 @@ public class SessionAuthenticationService {
 
         SecurityContextHolder.setContext(context);
 
-        securityContextRepository.saveContext(context, request, response);
+        securityContextRepository.saveContext( context, request, response);
 
-        csrfTokenRepository.saveToken( null, request, response);
+        return new EstablishedSession(identity.publicId(), resolved.type(), absoluteExpiresAt);
     }
 }
