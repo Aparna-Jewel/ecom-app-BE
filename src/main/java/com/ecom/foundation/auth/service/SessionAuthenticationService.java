@@ -11,7 +11,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextRepository;
-import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+
 import org.springframework.stereotype.Service;
 
 import com.ecom.foundation.auth.config.SessionProperties;
@@ -74,7 +74,7 @@ public class SessionAuthenticationService {
 
         session.setAttribute(ABSOLUTE_EXPIRES_AT, absoluteExpiresAt);
 
-        session.setAttribute(ID_REFRESHED_AT, now);
+        session.setAttribute(ID_REFRESHED_AT, policy.refreshInterval());
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
 

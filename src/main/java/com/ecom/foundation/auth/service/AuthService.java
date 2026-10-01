@@ -65,11 +65,7 @@ public class AuthService {
         this.clock = clock;
     }
 
-    @Transactional(readOnly =true)
-    public Optional<Account> getAccountByMobile(String mobile, Clock clock) {
-        return accountRepository.findByMobile(mobile);
-    }
-
+    @Transactional 
     public UserIdentity authenticateCustomerRequest(AuthenticateRequestModel request){
         String isdMobileNumber = request.isd() + request.mobile();
         
