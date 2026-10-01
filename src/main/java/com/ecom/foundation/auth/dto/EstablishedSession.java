@@ -8,6 +8,7 @@ import com.ecom.foundation.auth.config.SessionType;
 public record EstablishedSession(
         UUID accountPublicId,
         SessionType sessionType,
-        Instant absoluteExpiresAt
+        Instant absoluteExpiresAt,
+        CsrfResponse csrf
 ) {
 }

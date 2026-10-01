@@ -11,10 +11,11 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.SecurityContextRepository;
-
+import org.springframework.security.web.csrf.CsrfToken;
 import org.springframework.stereotype.Service;
 
 import com.ecom.foundation.auth.config.SessionProperties;
+import com.ecom.foundation.auth.dto.CsrfResponse;
 import com.ecom.foundation.auth.dto.EstablishedSession;
 import com.ecom.foundation.auth.dto.UserIdentity;
 import com.ecom.foundation.auth.service.SessionPolicyResolver.ResolvedSessionPolicy;
@@ -60,6 +61,14 @@ public class SessionAuthenticationService {
 
         sessionAuthenticationStrategy.onAuthentication(authentication, request, response);
 
+        CsrfToken csrfToken = (CsrfToken) request.getAttribute(CsrfToken.class.getName());
+
+        if (csrfToken == null) {
+            throw new IllegalStateException("CSRF token was not available after authentication");
+        }
+
+        CsrfResponse csrfResponse = new CsrfResponse(csrfToken.getToken(), csrfToken.getHeaderName());
+
         HttpSession session = request.getSession(true);
 
         Instant now = clock.instant();
@@ -74,7 +83,7 @@ public class SessionAuthenticationService {
 
         session.setAttribute(ABSOLUTE_EXPIRES_AT, absoluteExpiresAt);
 
-        session.setAttribute(ID_REFRESHED_AT, policy.refreshInterval());
+        session.setAttribute(ID_REFRESHED_AT, now);
 
         SecurityContext context = SecurityContextHolder.createEmptyContext();
 
@@ -84,6 +93,6 @@ public class SessionAuthenticationService {
 
         securityContextRepository.saveContext( context, request, response);
 
-        return new EstablishedSession(identity.publicId(), resolved.type(), absoluteExpiresAt);
+        return new EstablishedSession(identity.publicId(), resolved.type(), absoluteExpiresAt, csrfResponse);
     }
 }

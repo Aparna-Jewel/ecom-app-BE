@@ -1,5 +1,7 @@
 package com.ecom.foundation.auth.config;
 
+import java.util.List;
+
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
@@ -10,12 +12,14 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.session.ChangeSessionIdAuthenticationStrategy;
+import org.springframework.security.web.authentication.session.CompositeSessionAuthenticationStrategy;
 import org.springframework.security.web.authentication.session.SessionAuthenticationStrategy;
 import org.springframework.security.web.context.DelegatingSecurityContextRepository;
 import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 import org.springframework.security.web.context.SecurityContextRepository;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfAuthenticationStrategy;
 import org.springframework.security.web.csrf.XorCsrfTokenRequestAttributeHandler;
 
 @Configuration
@@ -40,8 +44,12 @@ public class SecurityConfiguration {
         }
 
         @Bean
+        XorCsrfTokenRequestAttributeHandler csrfTokenRequestHandler() {
+                return new XorCsrfTokenRequestAttributeHandler();
+        }
+
+        @Bean
         SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository, SecurityContextRepository securityContextRepository) throws Exception {
-            XorCsrfTokenRequestAttributeHandler csrfRequestHandler = new XorCsrfTokenRequestAttributeHandler();
 
             http
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
@@ -103,7 +111,14 @@ public class SecurityConfiguration {
         }
 
         @Bean
-        SessionAuthenticationStrategy sessionAuthenticationStrategy() {
-            return new ChangeSessionIdAuthenticationStrategy();
+        SessionAuthenticationStrategy sessionAuthenticationStrategy(CookieCsrfTokenRepository csrfTokenRepository, XorCsrfTokenRequestAttributeHandler csrfTokenRequestHandler) {
+
+            ChangeSessionIdAuthenticationStrategy sessionIdStrategy = new ChangeSessionIdAuthenticationStrategy();
+
+            CsrfAuthenticationStrategy csrfStrategy = new CsrfAuthenticationStrategy(csrfTokenRepository);
+
+            csrfStrategy.setRequestHandler(csrfTokenRequestHandler);
+
+            return new CompositeSessionAuthenticationStrategy(List.of(sessionIdStrategy,csrfStrategy));
         }
 }
