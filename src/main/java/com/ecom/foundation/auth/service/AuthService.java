@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-import org.springframework.aop.framework.AopConfigException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,9 +55,6 @@ public class AuthService {
 
     @Autowired 
     private CustomerProfileRepository customerProfileRepository;
-
-    @Autowired 
-    private SessionAuthenticationService sessionAuthenticationService;
     
     private Clock clock;
     public AuthService(Clock clock) {

@@ -49,8 +49,7 @@ public class SecurityConfiguration {
         }
 
         @Bean
-        SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository, SecurityContextRepository securityContextRepository) throws Exception {
-
+        SecurityFilterChain securityFilterChain(HttpSecurity http, CookieCsrfTokenRepository csrfTokenRepository, SecurityContextRepository securityContextRepository, XorCsrfTokenRequestAttributeHandler csrfTokenRequestHandler) throws Exception {
             http
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
                 .securityContext(security -> security
@@ -61,7 +60,11 @@ public class SecurityConfiguration {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
-                .csrf(csrf -> csrf.csrfTokenRepository(csrfTokenRepository).csrfTokenRequestHandler(csrfRequestHandler))
+                .csrf(csrf ->
+                        csrf
+                        .csrfTokenRepository(csrfTokenRepository)
+                        .csrfTokenRequestHandler(csrfTokenRequestHandler)
+                )
                 .authorizeHttpRequests(authorize -> authorize
                     .requestMatchers(HttpMethod.GET,"/api/security/csrf").permitAll()
                     .requestMatchers(
